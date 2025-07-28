@@ -143,7 +143,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
 
             {/* Settings */}
             <Button variant="ghost" size="icon-sm">
-              <Settings className="h-5 w-5" />
+              <SettingsIcon className="h-5 w-5" />
             </Button>
 
             {/* User Profile */}
