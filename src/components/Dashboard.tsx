@@ -7,6 +7,7 @@ import PayrollManagement from './PayrollManagement';
 import DocumentManagement from './DocumentManagement';
 import AnalyticsReports from './AnalyticsReports';
 import RecruitmentManagement from './RecruitmentManagement';
+import EmployeeManagement from './EmployeeManagement';
 import Settings from './Settings';
 import { 
   Users, 
@@ -262,6 +263,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
             </div>
           )}
           
+          {activeModule === 'employees' && <EmployeeManagement />}
           {activeModule === 'attendance' && <AttendanceManagement />}
           {activeModule === 'payroll' && <PayrollManagement />}
           {activeModule === 'documents' && <DocumentManagement />}
