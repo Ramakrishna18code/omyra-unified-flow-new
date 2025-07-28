@@ -9,13 +9,14 @@ import {
   Calendar, 
   Download,
   Eye,
+  Edit2,
   Send,
   Search,
   Filter,
   Calculator,
-  FileText,
   CreditCard,
-  TrendingUp
+  TrendingUp,
+  FileText
 } from 'lucide-react';
 
 interface PayrollRecord {
@@ -34,6 +35,18 @@ interface PayrollRecord {
 const PayrollManagement: React.FC = () => {
   const [selectedPeriod, setSelectedPeriod] = useState('2024-01');
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showSuccess, setShowSuccess] = useState(false);
+
+  // Handle actions with loading states
+  const handleAction = (action: string, recordId?: string) => {
+    setIsLoading(true);
+    setTimeout(() => {
+      setIsLoading(false);
+      setShowSuccess(true);
+      setTimeout(() => setShowSuccess(false), 2000);
+    }, 800);
+  };
 
   const payrollData: PayrollRecord[] = [
     {
@@ -52,11 +65,11 @@ const PayrollManagement: React.FC = () => {
       id: '2',
       employeeId: 'EMP002',
       employeeName: 'Sarah Johnson',
-      position: 'UI Designer',
-      baseSalary: 6500,
-      allowances: 800,
+      position: 'Marketing Manager',
+      baseSalary: 7300,
+      allowances: 1000,
       deductions: 750,
-      netSalary: 6550,
+      netSalary: 7550,
       status: 'processed',
       payPeriod: '2024-01'
     },
@@ -98,93 +111,147 @@ const PayrollManagement: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
+      {/* Success Toast */}
+      {showSuccess && (
+        <div className="fixed top-20 right-6 z-50 bg-accent text-white px-6 py-3 rounded-lg shadow-lg animate-slide-in-down">
+          <div className="flex items-center gap-2">
+            <div className="w-2 h-2 bg-white rounded-full"></div>
+            Payroll action completed successfully!
+          </div>
+        </div>
+      )}
+
+      {/* Loading Overlay */}
+      {isLoading && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-40 flex items-center justify-center">
+          <div className="bg-card p-8 rounded-2xl shadow-2xl animate-scale-in">
+            <div className="flex items-center gap-4">
+              <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+              <span className="text-lg font-medium">Processing payroll...</span>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-        <div>
-          <h1 className="text-3xl font-bold">Payroll Management</h1>
+      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 animate-fade-in-up">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            Payroll Management
+          </h1>
           <p className="text-muted-foreground">Manage employee salaries and compensation</p>
         </div>
         
-        <div className="flex gap-3">
-          <Button variant="outline">
-            <Download className="h-4 w-4" />
+        <div className="flex gap-3 animate-fade-in-right">
+          <Button 
+            variant="outline" 
+            className="hover-lift group"
+            onClick={() => handleAction('export')}
+            disabled={isLoading}
+          >
+            <Download className="h-4 w-4 group-hover:animate-bounce-in" />
             Export Payroll
           </Button>
-          <Button variant="secondary">
-            <Calculator className="h-4 w-4" />
+          <Button 
+            variant="secondary" 
+            className="hover-lift group"
+            onClick={() => handleAction('calculate')}
+            disabled={isLoading}
+          >
+            <Calculator className="h-4 w-4 group-hover:animate-bounce-in" />
             Run Payroll
           </Button>
-          <Button variant="neu-primary">
-            <Send className="h-4 w-4" />
+          <Button 
+            variant="neu-primary" 
+            className="hover-glow group"
+            onClick={() => handleAction('process')}
+            disabled={isLoading}
+          >
+            <Send className="h-4 w-4 group-hover:animate-bounce-in" />
             Process Payments
           </Button>
         </div>
       </div>
 
       {/* Payroll Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <Card className="neu-surface p-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4 animate-fade-in-up" style={{animationDelay: '200ms'}}>
+        <Card 
+          className="neu-surface p-4 hover-lift group cursor-pointer stagger-item"
+          onClick={() => handleAction('view-stats', 'total-payroll')}
+        >
           <div className="flex items-center gap-3">
-            <DollarSign className="h-8 w-8 text-primary" />
+            <DollarSign className="h-8 w-8 text-primary group-hover:animate-floating" />
             <div>
-              <p className="text-sm text-muted-foreground">Total Payroll</p>
-              <p className="text-2xl font-bold">{formatCurrency(payrollStats.totalPayroll)}</p>
+              <p className="text-sm text-muted-foreground group-hover:text-primary transition-colors">Total Payroll</p>
+              <p className="text-2xl font-bold group-hover:scale-105 transition-transform">{formatCurrency(payrollStats.totalPayroll)}</p>
             </div>
           </div>
         </Card>
         
-        <Card className="neu-surface p-4">
+        <Card 
+          className="neu-surface p-4 hover-lift group cursor-pointer stagger-item"
+          onClick={() => handleAction('view-stats', 'employees')}
+        >
           <div className="flex items-center gap-3">
-            <Users className="h-8 w-8 text-accent" />
+            <Users className="h-8 w-8 text-accent group-hover:animate-floating" />
             <div>
-              <p className="text-sm text-muted-foreground">Employees</p>
-              <p className="text-2xl font-bold">{payrollStats.totalEmployees}</p>
+              <p className="text-sm text-muted-foreground group-hover:text-accent transition-colors">Employees</p>
+              <p className="text-2xl font-bold group-hover:scale-105 transition-transform">{payrollStats.totalEmployees}</p>
             </div>
           </div>
         </Card>
         
-        <Card className="neu-surface p-4">
+        <Card 
+          className="neu-surface p-4 hover-lift group cursor-pointer stagger-item"
+          onClick={() => handleAction('view-stats', 'avg-salary')}
+        >
           <div className="flex items-center gap-3">
-            <TrendingUp className="h-8 w-8 text-warning" />
+            <TrendingUp className="h-8 w-8 text-warning group-hover:animate-floating" />
             <div>
-              <p className="text-sm text-muted-foreground">Avg Salary</p>
-              <p className="text-2xl font-bold">{formatCurrency(payrollStats.avgSalary)}</p>
+              <p className="text-sm text-muted-foreground group-hover:text-warning transition-colors">Avg Salary</p>
+              <p className="text-2xl font-bold group-hover:scale-105 transition-transform">{formatCurrency(payrollStats.avgSalary)}</p>
             </div>
           </div>
         </Card>
         
-        <Card className="neu-surface p-4">
+        <Card 
+          className="neu-surface p-4 hover-lift group cursor-pointer stagger-item"
+          onClick={() => handleAction('view-stats', 'pending')}
+        >
           <div className="flex items-center gap-3">
-            <CreditCard className="h-8 w-8 text-destructive" />
+            <CreditCard className="h-8 w-8 text-destructive group-hover:animate-floating" />
             <div>
-              <p className="text-sm text-muted-foreground">Pending</p>
-              <p className="text-2xl font-bold">{payrollStats.pendingPayments}</p>
+              <p className="text-sm text-muted-foreground group-hover:text-destructive transition-colors">Pending</p>
+              <p className="text-2xl font-bold group-hover:scale-105 transition-transform">{payrollStats.pendingPayments}</p>
             </div>
           </div>
         </Card>
         
-        <Card className="neu-surface p-4">
+        <Card 
+          className="neu-surface p-4 hover-lift group cursor-pointer stagger-item"
+          onClick={() => handleAction('view-stats', 'processed')}
+        >
           <div className="flex items-center gap-3">
-            <Calculator className="h-8 w-8 text-primary" />
+            <Calculator className="h-8 w-8 text-primary group-hover:animate-floating" />
             <div>
-              <p className="text-sm text-muted-foreground">Processed</p>
-              <p className="text-2xl font-bold">{formatCurrency(payrollStats.processedAmount)}</p>
+              <p className="text-sm text-muted-foreground group-hover:text-primary transition-colors">Processed</p>
+              <p className="text-2xl font-bold group-hover:scale-105 transition-transform">{formatCurrency(payrollStats.processedAmount)}</p>
             </div>
           </div>
         </Card>
       </div>
 
       {/* Filters */}
-      <Card className="neu-surface p-6">
+      <Card className="neu-surface p-6 animate-fade-in-up" style={{animationDelay: '300ms'}}>
         <div className="flex flex-col lg:flex-row gap-4">
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <div className="flex-1 relative group">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
             <Input
               placeholder="Search employees..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 neu-inset border-0 bg-muted/30"
+              className="pl-10 neu-inset focus:shadow-lg transition-all duration-300"
             />
           </div>
           
@@ -193,124 +260,167 @@ const PayrollManagement: React.FC = () => {
               type="month"
               value={selectedPeriod}
               onChange={(e) => setSelectedPeriod(e.target.value)}
-              className="neu-inset border-0 bg-muted/30"
+              className="neu-inset hover-lift"
             />
             
-            <Button variant="outline">
-              <Filter className="h-4 w-4" />
-              Filter
+            <Button 
+              variant="outline" 
+              size="icon"
+              className="hover-scale group"
+              onClick={() => handleAction('filter')}
+              disabled={isLoading}
+            >
+              <Filter className="h-4 w-4 group-hover:animate-bounce-in" />
             </Button>
           </div>
         </div>
       </Card>
 
       {/* Payroll Table */}
-      <Card className="neu-surface">
-        <div className="p-6">
-          <div className="flex items-center justify-between mb-6">
-            <h3 className="text-xl font-semibold">Payroll Details</h3>
-            <Badge variant="outline">
-              {new Date(selectedPeriod).toLocaleDateString('en-US', { 
-                year: 'numeric', 
-                month: 'long' 
-              })}
-            </Badge>
+      <Card className="neu-surface animate-fade-in-up" style={{animationDelay: '400ms'}}>
+        <div className="p-6 border-b border-border/50">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-lg font-semibold">Payroll Records</h3>
+              <p className="text-sm text-muted-foreground">
+                {payrollData.length} employees for {selectedPeriod}
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="hover-lift group"
+                onClick={() => handleAction('refresh')}
+                disabled={isLoading}
+              >
+                <Calculator className="h-4 w-4 group-hover:animate-spin" />
+                Recalculate
+              </Button>
+            </div>
           </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-border/50">
-                  <th className="text-left p-4 font-medium text-muted-foreground">Employee</th>
-                  <th className="text-left p-4 font-medium text-muted-foreground">Position</th>
-                  <th className="text-left p-4 font-medium text-muted-foreground">Base Salary</th>
-                  <th className="text-left p-4 font-medium text-muted-foreground">Allowances</th>
-                  <th className="text-left p-4 font-medium text-muted-foreground">Deductions</th>
-                  <th className="text-left p-4 font-medium text-muted-foreground">Net Salary</th>
-                  <th className="text-left p-4 font-medium text-muted-foreground">Status</th>
-                  <th className="text-left p-4 font-medium text-muted-foreground">Actions</th>
+        </div>
+        
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead className="border-b border-border/50">
+              <tr>
+                <th className="text-left p-4 font-medium">Employee</th>
+                <th className="text-left p-4 font-medium">Position</th>
+                <th className="text-left p-4 font-medium">Base Salary</th>
+                <th className="text-left p-4 font-medium">Allowances</th>
+                <th className="text-left p-4 font-medium">Deductions</th>
+                <th className="text-left p-4 font-medium">Net Salary</th>
+                <th className="text-left p-4 font-medium">Status</th>
+                <th className="text-left p-4 font-medium">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {payrollData.map((record, index) => (
+                <tr 
+                  key={record.id} 
+                  className="border-b border-border/20 hover:bg-muted/50 transition-colors cursor-pointer group stagger-item"
+                  style={{animationDelay: `${500 + index * 100}ms`}}
+                  onClick={() => handleAction('view', record.id)}
+                >
+                  <td className="p-4">
+                    <div>
+                      <p className="font-medium group-hover:text-primary transition-colors">{record.employeeName}</p>
+                      <p className="text-sm text-muted-foreground">{record.employeeId}</p>
+                    </div>
+                  </td>
+                  <td className="p-4">
+                    <span className="font-medium group-hover:text-primary transition-colors">{record.position}</span>
+                  </td>
+                  <td className="p-4">
+                    <span className="font-medium">{formatCurrency(record.baseSalary)}</span>
+                  </td>
+                  <td className="p-4">
+                    <span className="text-accent font-medium">{formatCurrency(record.allowances)}</span>
+                  </td>
+                  <td className="p-4">
+                    <span className="text-destructive font-medium">{formatCurrency(record.deductions)}</span>
+                  </td>
+                  <td className="p-4">
+                    <span className="font-bold text-primary">{formatCurrency(record.netSalary)}</span>
+                  </td>
+                  <td className="p-4">
+                    <Badge className={getStatusColor(record.status)}>
+                      {record.status}
+                    </Badge>
+                  </td>
+                  <td className="p-4">
+                    <div className="flex items-center gap-2">
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="hover-scale group"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAction('view', record.id);
+                        }}
+                        disabled={isLoading}
+                      >
+                        <Eye className="h-4 w-4 group-hover:animate-bounce-in" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="hover-scale group"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAction('download', record.id);
+                        }}
+                        disabled={isLoading}
+                      >
+                        <Download className="h-4 w-4 group-hover:animate-bounce-in" />
+                      </Button>
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {payrollData
-                  .filter(record => 
-                    record.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                    record.employeeId.toLowerCase().includes(searchTerm.toLowerCase())
-                  )
-                  .map((record) => (
-                    <tr key={record.id} className="border-b border-border/30 hover:bg-muted/20 transition-colors">
-                      <td className="p-4">
-                        <div>
-                          <p className="font-medium">{record.employeeName}</p>
-                          <p className="text-sm text-muted-foreground">{record.employeeId}</p>
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <span className="text-sm">{record.position}</span>
-                      </td>
-                      <td className="p-4">
-                        <span className="font-medium">{formatCurrency(record.baseSalary)}</span>
-                      </td>
-                      <td className="p-4">
-                        <span className="text-accent font-medium">+{formatCurrency(record.allowances)}</span>
-                      </td>
-                      <td className="p-4">
-                        <span className="text-destructive font-medium">-{formatCurrency(record.deductions)}</span>
-                      </td>
-                      <td className="p-4">
-                        <span className="font-bold text-lg">{formatCurrency(record.netSalary)}</span>
-                      </td>
-                      <td className="p-4">
-                        <Badge className={`${getStatusColor(record.status)} flex items-center gap-1 w-fit`}>
-                          <span className="capitalize">{record.status}</span>
-                        </Badge>
-                      </td>
-                      <td className="p-4">
-                        <div className="flex gap-2">
-                          <Button variant="ghost" size="sm">
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="sm">
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
-            </table>
-          </div>
+              ))}
+            </tbody>
+          </table>
         </div>
       </Card>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card className="neu-surface p-6 hover:scale-105 transition-transform">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 animate-fade-in-up" style={{animationDelay: '500ms'}}>
+        <Card 
+          className="neu-surface p-6 hover-lift group cursor-pointer"
+          onClick={() => handleAction('run-payroll')}
+        >
           <div className="flex items-center gap-4">
-            <Calculator className="h-12 w-12 text-primary" />
+            <Calculator className="h-12 w-12 text-primary group-hover:animate-floating" />
             <div>
-              <h3 className="font-semibold">Calculate Salary</h3>
-              <p className="text-sm text-muted-foreground">Compute employee compensation</p>
+              <h3 className="font-semibold group-hover:text-primary transition-colors">Run Payroll</h3>
+              <p className="text-sm text-muted-foreground">Calculate salaries for current period</p>
             </div>
           </div>
         </Card>
         
-        <Card className="neu-surface p-6 hover:scale-105 transition-transform">
+        <Card 
+          className="neu-surface p-6 hover-lift group cursor-pointer"
+          onClick={() => handleAction('process-payments')}
+        >
           <div className="flex items-center gap-4">
-            <FileText className="h-12 w-12 text-accent" />
+            <Send className="h-12 w-12 text-accent group-hover:animate-floating" />
             <div>
-              <h3 className="font-semibold">Generate Payslips</h3>
-              <p className="text-sm text-muted-foreground">Create detailed pay statements</p>
+              <h3 className="font-semibold group-hover:text-accent transition-colors">Process Payments</h3>
+              <p className="text-sm text-muted-foreground">Send payments to employees</p>
             </div>
           </div>
         </Card>
         
-        <Card className="neu-surface p-6 hover:scale-105 transition-transform">
+        <Card 
+          className="neu-surface p-6 hover-lift group cursor-pointer"
+          onClick={() => handleAction('generate-reports')}
+        >
           <div className="flex items-center gap-4">
-            <CreditCard className="h-12 w-12 text-warning" />
+            <FileText className="h-12 w-12 text-warning group-hover:animate-floating" />
             <div>
-              <h3 className="font-semibold">Process Payments</h3>
-              <p className="text-sm text-muted-foreground">Execute salary transfers</p>
+              <h3 className="font-semibold group-hover:text-warning transition-colors">Generate Reports</h3>
+              <p className="text-sm text-muted-foreground">Create payroll summaries</p>
             </div>
           </div>
         </Card>
