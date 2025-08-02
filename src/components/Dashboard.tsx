@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
+import { Button, type ButtonProps } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import AttendanceManagement from './AttendanceManagement';
@@ -8,36 +8,7 @@ import DocumentManagement from './DocumentManagement';
 import AnalyticsReports from './AnalyticsReports';
 import RecruitmentManagement from './RecruitmentManagement';
 import EmployeeManagement from './EmployeeManagement';
-import MeetingsManagement from './MeetingsManagement';
-import Settings from './Settings';
-import { 
-  Users, 
-  DollarSign, 
-  FileText, 
-  Calendar, 
-  Bell, 
-  Settings as SettingsIcon,
-  Menu,
-  Search,
-  Moon,
-  Sun,
-  Building2,
-  TrendingUp,
-  Clock,
-  UserCheck,
-  BarChart3,
-  ChevronRight,
-  ChevronDown,
-  Home,
-  ChevronLeft,
-  Maximize2,
-  Minimize2,
-  PanelLeftClose,
-  PanelLeftOpen,
-  ChevronsLeft,
-  ChevronsRight,
-  HelpCircle
-} from 'lucide-react';
+import MeetingsManagement from './Settings';
 
 interface DashboardProps {
   userRole?: 'admin' | 'hr' | 'manager' | 'employee' | 'intern';
@@ -58,6 +29,24 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
   const [timeOfDay, setTimeOfDay] = useState('');
   const [showTimeModal, setShowTimeModal] = useState(false);
   
+  // Project state for demo
+  const [projects, setProjects] = useState([
+    { id: 1, name: 'HR Portal Redesign', status: 'Assigned', owner: 'Alice', team: ['Alice'], file: null },
+    { id: 2, name: 'Payroll Automation', status: 'Completed', owner: 'Bob', team: ['Bob'], file: null },
+    { id: 3, name: 'Mobile App', status: 'In Progress', owner: 'Charlie', team: ['Charlie', 'Alice'], file: null },
+  ]);
+  const [showProjectModal, setShowProjectModal] = useState(false);
+  const [newProject, setNewProject] = useState({ name: '', owner: '', team: '', file: null });
+  const [draggedProject, setDraggedProject] = useState(null);
+
+  // Notification state
+  const [notifications, setNotifications] = useState([
+    { id: 1, message: '3 new leave requests', read: false },
+    { id: 2, message: 'Payroll processed', read: true },
+    { id: 3, message: 'New employee added', read: false },
+  ]);
+  const [showNotifications, setShowNotifications] = useState(false);
+
   // Update time every minute
   useEffect(() => {
     const updateTime = () => {
@@ -142,15 +131,16 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);  const modules = [
-    { id: 'overview', icon: Home, label: 'Overview', description: 'Dashboard home' },
-    { id: 'employees', icon: Users, label: 'Employees', description: 'Manage workforce' },
-    { id: 'attendance', icon: Calendar, label: 'Attendance', description: 'Track presence' },
-    { id: 'payroll', icon: DollarSign, label: 'Payroll', description: 'Process payments' },
-    { id: 'meetings', icon: Calendar, label: 'Meetings', description: 'Schedule & conduct' },
-    { id: 'documents', icon: FileText, label: 'Documents', description: 'File management' },
-    { id: 'analytics', icon: BarChart3, label: 'Analytics', description: 'View insights' },
-    { id: 'recruitment', icon: UserCheck, label: 'Recruitment', description: 'Hire talent' },
-    { id: 'settings', icon: SettingsIcon, label: 'Settings', description: 'System config' }
+    { id: 'overview', label: 'Overview', description: 'Dashboard home' },
+    { id: 'employees', label: 'Employees', description: 'Manage workforce' },
+    { id: 'attendance', label: 'Attendance', description: 'Track presence' },
+    { id: 'payroll', label: 'Payroll', description: 'Process payments' },
+    { id: 'meetings', label: 'Meetings', description: 'Schedule & conduct' },
+    { id: 'projects', label: 'Projects', description: 'Company projects' },
+    { id: 'documents', label: 'Documents', description: 'File management' },
+    { id: 'analytics', label: 'Analytics', description: 'View insights' },
+    { id: 'recruitment', label: 'Recruitment', description: 'Hire talent' },
+    { id: 'settings', label: 'Settings', description: 'System config' }
   ];
 
   const quickStats = [
@@ -158,28 +148,24 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
       title: 'Total Employees',
       value: '247',
       change: '+12%',
-      icon: Users,
       color: 'primary'
     },
     {
       title: 'Monthly Revenue',
       value: '$125.8K',
       change: '+8.2%',
-      icon: DollarSign,
       color: 'accent'
     },
     {
       title: 'Active Projects',
       value: '18',
       change: '+3',
-      icon: FileText,
       color: 'warning'
     },
     {
       title: 'Pending Approvals',
       value: '7',
       change: '-2',
-      icon: Clock,
       color: 'destructive'
     }
   ];
@@ -196,6 +182,14 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
     document.documentElement.classList.toggle('dark');
   };
 
+  // Settings/help handlers
+  const handleSettings = () => {
+    setActiveModule('settings');
+  };
+  const handleHelp = () => {
+    alert('Help & Support coming soon!');
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-background to-muted transition-all duration-300 animate-fade-in">
       {/* Enhanced Top Navigation */}
@@ -209,17 +203,17 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
               className="hover-scale group"
             >
               {sidebarMode === 'full' ? (
-                <PanelLeftClose className="h-5 w-5 group-hover:animate-bounce-in" />
+                <span className="h-5 w-5 group-hover:animate-bounce-in">◀</span>
               ) : sidebarMode === 'mini' ? (
-                <PanelLeftOpen className="h-5 w-5 group-hover:animate-bounce-in" />
+                <span className="h-5 w-5 group-hover:animate-bounce-in">▶</span>
               ) : (
-                <Menu className="h-5 w-5 group-hover:animate-bounce-in" />
+                <span className="h-5 w-5 group-hover:animate-bounce-in">☰</span>
               )}
             </Button>
             
             <div className="flex items-center gap-3 animate-fade-in-left">
               <div className="p-2 rounded-xl bg-primary-gradient shadow-lg hover-glow">
-                <Building2 className="h-6 w-6 text-primary-foreground" />
+                {/* Logo here */}
               </div>
               <div>
                 <h1 className="text-xl font-bold bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
@@ -233,7 +227,6 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
           <div className="flex items-center gap-4 animate-fade-in-right">
             {/* Enhanced Search */}
             <div className="relative hidden md:block">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input
                 type="text"
                 placeholder="Search employees, projects..."
@@ -242,21 +235,42 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
             </div>
 
             {/* Enhanced Notifications */}
-            <Button variant="ghost" size="icon-sm" className="relative hover-scale">
-              <Bell className="h-5 w-5" />
-              <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs bg-destructive">
-                3
-              </Badge>
-            </Button>
+            <div className="relative">
+              <Button variant={"outline" as ButtonProps["variant"]} size={"icon" as ButtonProps["size"]} className="hover-scale" onClick={() => setShowNotifications(!showNotifications)}>
+                <span className="h-5 w-5">🔔</span>
+                {notifications.filter(n => !n.read).length > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-5 w-5 p-0 text-xs bg-destructive">
+                    {notifications.filter(n => !n.read).length}
+                  </Badge>
+                )}
+              </Button>
+              {showNotifications && (
+                <div className="absolute right-0 mt-2 w-64 bg-white dark:bg-gray-900 border border-border rounded-xl shadow-lg z-50">
+                  <div className="p-3 font-semibold border-b border-border">Notifications</div>
+                  <ul className="max-h-60 overflow-y-auto">
+                    {notifications.map(n => (
+                      <li key={n.id} className={`p-3 text-sm ${n.read ? 'text-muted-foreground' : 'font-bold'}`}>{n.message}</li>
+                    ))}
+                  </ul>
+                  <div className="p-2 text-center">
+                    <Button size="sm" variant="ghost" onClick={() => setShowNotifications(false)}>Close</Button>
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Theme Toggle */}
             <Button variant="ghost" size="icon-sm" onClick={toggleTheme} className="hover-rotate">
-              {darkMode ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
+              {darkMode ? <span className="h-5 w-5">☀️</span> : <span className="h-5 w-5">🌙</span>}
             </Button>
 
             {/* Settings */}
-            <Button variant="ghost" size="icon-sm" className="hover-scale">
-              <SettingsIcon className="h-5 w-5" />
+            <Button variant="ghost" size="icon-sm" className="hover-scale" onClick={handleSettings}>
+              <span className="h-5 w-5">⚙️</span>
+            </Button>
+            {/* Help */}
+            <Button variant="ghost" size="icon-sm" className="hover-scale" onClick={handleHelp}>
+              <span className="h-5 w-5">❓</span>
             </Button>
 
             {/* Compact Daily Timeline */}
@@ -264,7 +278,6 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
               className="hidden sm:flex items-center gap-2 px-3 py-2 rounded-xl bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200/30 dark:border-blue-800/30 hover-lift shadow-sm cursor-pointer transition-all duration-300 hover:shadow-md hover:scale-105"
               onClick={() => setShowTimeModal(true)}
             >
-              <Clock className="h-4 w-4 text-blue-600 dark:text-blue-400" />
               <div className="flex flex-col items-center">
                 <div className="text-xs font-mono text-blue-700 dark:text-blue-300 font-semibold">
                   {currentTime.toLocaleTimeString('en-US', { 
@@ -295,11 +308,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
               className="sm:hidden flex items-center justify-center w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 relative overflow-hidden shadow-lg cursor-pointer hover:scale-110 transition-transform duration-300"
               onClick={() => setShowTimeModal(true)}
             >
-              <Clock className="h-4 w-4 text-white" />
-              <div 
-                className="absolute bottom-0 left-0 bg-white/30 transition-all duration-1000"
-                style={{ height: `${workDayProgress}%`, width: '100%' }}
-              ></div>
+              <div className="absolute bottom-0 left-0 bg-white/30 transition-all duration-1000" style={{ height: `${workDayProgress}%`, width: '100%' }}></div>
             </div>
 
             {/* Enhanced User Profile */}
@@ -353,9 +362,9 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
               onClick={toggleSidebar}
             >
               {sidebarMode === 'full' || (sidebarMode === 'mini' && sidebarHovered) ? (
-                <ChevronsLeft className="h-3 w-3" />
+                <span className="h-3 w-3 inline-block">◀</span>
               ) : (
-                <ChevronsRight className="h-3 w-3" />
+                <span className="h-3 w-3 inline-block">{'>'}{'>'}</span>
               )}
             </Button>
           )}
@@ -371,7 +380,6 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
               ${sidebarMode === 'mini' && !sidebarHovered ? 'justify-center' : ''}
             `}>
               <div className="p-2 rounded-lg bg-primary-gradient shadow-lg animate-glow hover:scale-110 transition-transform">
-                <Building2 className="h-5 w-5 text-white" />
               </div>
               {(sidebarMode === 'full' || (sidebarMode === 'mini' && sidebarHovered)) && (
                 <div className="animate-fade-in-right">
@@ -417,33 +425,12 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
                     <div className="absolute inset-0 bg-primary/20"></div>
                   )}
                   
-                  {/* Enhanced icon with better animations */}
-                  <div className={`
-                    relative transition-all duration-300
-                    ${activeModule === module.id ? 'text-primary' : ''}
-                    group-hover/item:scale-110
-                    group-hover/item:rotate-3
-                  `}>
-                    <module.icon className="h-5 w-5" />
-                    {/* Icon glow effect for active module - static version */}
-                    {activeModule === module.id && (
-                      <div className="absolute inset-0 opacity-30">
-                        <module.icon className="h-5 w-5 text-primary/30" />
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Enhanced text with slide animation */}
+                  {/* No icon, just label */}
                   {(sidebarMode === 'full' || (sidebarMode === 'mini' && sidebarHovered)) && (
                     <div className="flex-1 text-left animate-fade-in-right">
                       <span className="font-medium block">{module.label}</span>
                       <p className="text-xs text-muted-foreground truncate">{module.description}</p>
                     </div>
-                  )}
-                  
-                  {/* Arrow indicator with bounce animation */}
-                  {(sidebarMode === 'full' || (sidebarMode === 'mini' && sidebarHovered)) && activeModule === module.id && (
-                    <ChevronRight className="h-4 w-4 animate-bounce-x" />
                   )}
                   
                   {/* Enhanced active indicator */}
@@ -490,7 +477,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
                   hover:shadow-lg hover:scale-105
                 `}
               >
-                <SettingsIcon className="h-4 w-4 group-hover/action:rotate-90 transition-transform duration-300" />
+                {/* Settings icon removed */}
                 {(sidebarMode === 'full' || (sidebarMode === 'mini' && sidebarHovered)) && (
                   <span className="ml-2 animate-fade-in">Settings</span>
                 )}
@@ -498,11 +485,10 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
               
               {(sidebarMode === 'full' || (sidebarMode === 'mini' && sidebarHovered)) && (
                 <Button 
-                  variant="outline" 
-                  size="sm" 
+                  size="sm"
                   className="group/action hover-lift hover:shadow-lg hover:scale-105 transition-all duration-300"
                 >
-                  <HelpCircle className="h-4 w-4 group-hover/action:scale-110 transition-transform duration-300" />
+                  {/* Help icon removed */}
                   <span className="ml-2 animate-fade-in">Help</span>
                 </Button>
               )}
@@ -535,7 +521,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
               )}
               
               {(sidebarMode === 'full' || (sidebarMode === 'mini' && sidebarHovered)) && (
-                <ChevronDown className="h-4 w-4 text-muted-foreground group-hover/profile:text-primary group-hover/profile:rotate-180 transition-all duration-300" />
+                <Button variant="outline" size="sm" className="ml-2" onClick={() => alert('Logged out!')}>Logout</Button>
               )}
             </div>
             
@@ -600,24 +586,20 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
                   </p>
                 </div>
                 <div className="flex gap-3 animate-fade-in-right">
-                  <Button 
-                    variant="outline" 
+                    <Button 
                     className="hover-lift group"
                     onClick={() => handleModuleChange('meetings')}
                     disabled={isLoading}
-                  >
-                    <Calendar className="h-4 w-4 group-hover:animate-bounce-in" />
+                    >
                     Schedule Meeting
-                  </Button>
-                  <Button 
-                    variant="neu-primary" 
+                    </Button>
+                    <Button 
                     className="hover-glow group"
                     onClick={() => handleModuleChange('employees')}
                     disabled={isLoading}
-                  >
-                    <Users className="h-4 w-4 group-hover:animate-bounce-in" />
+                    >
                     Add Employee
-                  </Button>
+                    </Button>
                 </div>
               </div>
 
@@ -652,30 +634,10 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
                           {stat.value}
                         </p>
                         <div className="flex items-center gap-2">
-                          <TrendingUp className={`h-4 w-4 ${
-                            stat.change.startsWith('+') ? 'text-accent' : 'text-destructive'
-                          } group-hover:animate-bounce-in`} />
-                          <span className={`text-sm font-medium ${
-                            stat.change.startsWith('+') ? 'text-accent' : 'text-destructive'
-                          }`}>
-                            {stat.change}
-                          </span>
+                          <span className={`text-sm font-medium ${stat.change.startsWith('+') ? 'text-accent' : 'text-destructive'}`}>{stat.change}</span>
                         </div>
-                      </div>
-                      <div className={`
-                        p-3 rounded-xl bg-gradient-to-r 
-                        ${stat.color === 'primary' ? 'from-primary/10 to-primary/20' : ''}
-                        ${stat.color === 'accent' ? 'from-accent/10 to-accent/20' : ''}
-                        ${stat.color === 'warning' ? 'from-warning/10 to-warning/20' : ''}
-                        ${stat.color === 'destructive' ? 'from-destructive/10 to-destructive/20' : ''}
-                        group-hover:scale-110 group-hover:animate-glow transition-all duration-300
-                      `}>
-                        <stat.icon className={`h-8 w-8 ${
-                          stat.color === 'primary' ? 'text-primary' : ''
-                        }${stat.color === 'accent' ? 'text-accent' : ''}${
-                          stat.color === 'warning' ? 'text-warning' : ''
-                        }${stat.color === 'destructive' ? 'text-destructive' : ''}
-                        group-hover:animate-floating`} />
+                        <div className={`p-3 rounded-xl bg-gradient-to-r ${stat.color === 'primary' ? 'from-primary/10 to-primary/20' : ''}${stat.color === 'accent' ? 'from-accent/10 to-accent/20' : ''}${stat.color === 'warning' ? 'from-warning/10 to-warning/20' : ''}${stat.color === 'destructive' ? 'from-destructive/10 to-destructive/20' : ''} group-hover:scale-110 group-hover:animate-glow transition-all duration-300`}>
+                        </div>
                       </div>
                     </div>
                   </Card>
@@ -719,7 +681,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
                       <div className="h-2 w-2 rounded-full bg-primary mt-2 group-hover:scale-125 transition-transform"></div>
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs group-hover:scale-105 transition-transform">
+                          <Badge className="text-xs group-hover:scale-105 transition-transform">
                             {activity.type}
                           </Badge>
                           <span className="text-sm text-muted-foreground">{activity.time}</span>
@@ -770,8 +732,93 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
             </div>
           )}
           {activeModule === 'settings' && (
-            <div className="animate-fade-in">
+            <div className="animate-fade-in space-y-6">
               <Settings />
+              <Button variant="destructive" className="mt-4 w-full" onClick={() => alert('Logged out!')}>Logout</Button>
+            </div>
+          )}
+          {activeModule === 'projects' && (
+            <div className="animate-fade-in">
+              <div className="p-8 bg-card rounded-2xl shadow-xl mb-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-2xl font-bold">Company Projects</h2>
+                  <Button className="" onClick={() => setShowProjectModal(true)}>Add Project</Button>
+                </div>
+                <p className="mb-2 text-muted-foreground">Manage and review all company projects here. Drag projects between columns to update status.</p>
+              </div>
+              {/* Kanban Board */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {['Assigned', 'In Progress', 'Completed'].map(status => (
+                  <div key={status} className="bg-muted rounded-xl p-4 min-h-[300px]" onDragOver={e => e.preventDefault()} onDrop={e => {
+                    if (draggedProject) {
+                      setProjects(projects => projects.map(p => p.id === draggedProject.id ? { ...p, status } : p));
+                      setDraggedProject(null);
+                    }
+                  }}>
+                    <h3 className="font-semibold text-lg mb-3">{status}</h3>
+                    <div className="space-y-4">
+                      {projects.filter(p => p.status === status).map(p => (
+                        <div key={p.id} draggable onDragStart={() => setDraggedProject(p)} className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 cursor-move border border-border">
+                          <div className="flex justify-between items-center mb-2">
+                            <span className="font-bold text-primary">{p.name}</span>
+                            <span className="text-xs text-muted-foreground">{p.owner}</span>
+                          </div>
+                          <div className="text-xs mb-2">Team: {p.team && p.team.length ? p.team.join(', ') : '—'}</div>
+                          <div className="flex gap-2">
+                            {p.file && <a href={URL.createObjectURL(p.file)} target="_blank" rel="noopener noreferrer" className="text-primary underline text-xs">File</a>}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              {/* Project Add Modal */}
+              {showProjectModal && (
+                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+                  <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-2xl w-full max-w-md relative">
+                    <button className="absolute top-2 right-2 text-2xl" onClick={() => setShowProjectModal(false)}>×</button>
+                    <h3 className="text-xl font-bold mb-4">Add Project</h3>
+                    <form onSubmit={e => {
+                      e.preventDefault();
+                      setProjects([
+                        ...projects,
+                        {
+                          id: Date.now(),
+                          name: newProject.name,
+                          owner: newProject.owner,
+                          team: newProject.team.split(',').map(t => t.trim()).filter(Boolean),
+                          file: newProject.file,
+                          status: 'Assigned',
+                        },
+                      ]);
+                      setShowProjectModal(false);
+                      setNewProject({ name: '', owner: '', team: '', file: null });
+                    }}>
+                      <div className="mb-3">
+                        <label className="block mb-1 font-medium">Project Name</label>
+                        <input type="text" className="w-full border rounded p-2" value={newProject.name} onChange={e => setNewProject({ ...newProject, name: e.target.value })} required />
+                      </div>
+                      <div className="mb-3">
+                        <label className="block mb-1 font-medium">Owner</label>
+                        <input type="text" className="w-full border rounded p-2" value={newProject.owner} onChange={e => setNewProject({ ...newProject, owner: e.target.value })} required />
+                      </div>
+                      <div className="mb-3">
+                        <label className="block mb-1 font-medium">Team (comma separated)</label>
+                        <input type="text" className="w-full border rounded p-2" value={newProject.team} onChange={e => setNewProject({ ...newProject, team: e.target.value })} placeholder="Alice, Bob" />
+                      </div>
+                      <div className="mb-3">
+                        <label className="block mb-1 font-medium">Upload File</label>
+                        <input type="file" className="w-full" onChange={e => setNewProject({ ...newProject, file: e.target.files?.[0] || null })} />
+                      </div>
+                      <div className="flex gap-2 mt-4">
+                        <Button type="submit" className="flex-1">Add Project</Button>
+                        <Button type="button" variant="outline" className="flex-1" onClick={() => setShowProjectModal(false)}>Cancel</Button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </main>
@@ -785,7 +832,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
         >
           <div 
             className="relative bg-gradient-to-br from-blue-50 via-white to-indigo-50 dark:from-gray-900 dark:via-blue-950 dark:to-indigo-950 p-8 rounded-3xl shadow-2xl border border-blue-200/30 dark:border-blue-800/30 max-w-md w-full mx-4 animate-bounce-in backdrop-blur-xl"
-            onClick={(e) => e.stopPropagation()}
+            onClick={(e: React.MouseEvent<HTMLDivElement>) => e.stopPropagation()}
           >
             {/* Close Button */}
             <button 
