@@ -31,13 +31,16 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
   
   // Project state for demo
   const [projects, setProjects] = useState([
-    { id: 1, name: 'HR Portal Redesign', status: 'Assigned', owner: 'Alice', team: ['Alice'], file: null },
-    { id: 2, name: 'Payroll Automation', status: 'Completed', owner: 'Bob', team: ['Bob'], file: null },
-    { id: 3, name: 'Mobile App', status: 'In Progress', owner: 'Charlie', team: ['Charlie', 'Alice'], file: null },
+    { id: 1, name: 'HR Portal Redesign', status: 'Assigned', owner: 'Alice', team: ['Alice'], file: null, budget: '$50,000' },
+    { id: 2, name: 'Payroll Automation', status: 'Completed', owner: 'Bob', team: ['Bob'], file: null, budget: '$30,000' },
+    { id: 3, name: 'Mobile App', status: 'In Progress', owner: 'Charlie', team: ['Charlie', 'Alice'], file: null, budget: '$70,000' },
   ]);
   const [showProjectModal, setShowProjectModal] = useState(false);
-  const [newProject, setNewProject] = useState({ name: '', owner: '', team: '', file: null });
+  const [newProject, setNewProject] = useState({ name: '', owner: '', team: '', file: null, budget: '' });
   const [draggedProject, setDraggedProject] = useState(null);
+  const [selectedProject, setSelectedProject] = useState(null);
+  const [projectPage, setProjectPage] = useState<'list' | 'details' | 'edit' | 'kanban'>('list');
+  const [editProject, setEditProject] = useState(null);
 
   // Notification state
   const [notifications, setNotifications] = useState([
@@ -46,6 +49,9 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
     { id: 3, message: 'New employee added', read: false },
   ]);
   const [showNotifications, setShowNotifications] = useState(false);
+
+  // Add state for employee access roles
+  const [employeeAccessRoles, setEmployeeAccessRoles] = useState(['admin', 'hr']);
 
   // Update time every minute
   useEffect(() => {
@@ -133,9 +139,6 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
   }, []);  const modules = [
     { id: 'overview', label: 'Overview', description: 'Dashboard home' },
     { id: 'employees', label: 'Employees', description: 'Manage workforce' },
-    { id: 'attendance', label: 'Attendance', description: 'Track presence' },
-    { id: 'payroll', label: 'Payroll', description: 'Process payments' },
-    { id: 'meetings', label: 'Meetings', description: 'Schedule & conduct' },
     { id: 'projects', label: 'Projects', description: 'Company projects' },
     { id: 'documents', label: 'Documents', description: 'File management' },
     { id: 'analytics', label: 'Analytics', description: 'View insights' },
@@ -696,25 +699,13 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
           )}
           
           {/* Module Components with animations */}
-          {activeModule === 'employees' && (
+          {activeModule === 'employees' && employeeAccessRoles.includes(userRole) && (
             <div className="animate-fade-in">
               <EmployeeManagement />
             </div>
           )}
-          {activeModule === 'attendance' && (
-            <div className="animate-fade-in">
-              <AttendanceManagement />
-            </div>
-          )}
-          {activeModule === 'payroll' && (
-            <div className="animate-fade-in">
-              <PayrollManagement />
-            </div>
-          )}
-          {activeModule === 'meetings' && (
-            <div className="animate-fade-in">
-              <MeetingsManagement />
-            </div>
+          {activeModule === 'employees' && !employeeAccessRoles.includes(userRole) && (
+            <div className="p-8 text-center text-destructive font-semibold">You do not have access to view Employees.</div>
           )}
           {activeModule === 'documents' && (
             <div className="animate-fade-in">
@@ -732,47 +723,168 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
             </div>
           )}
           {activeModule === 'settings' && (
-            <div className="animate-fade-in space-y-6">
-              <Settings />
+            <div className="animate-fade-in space-y-6 p-8 bg-card rounded-2xl shadow-xl">
+              <h2 className="text-2xl font-bold mb-4">Settings</h2>
+              <div className="space-y-4">
+                <div>
+                  <h3 className="font-semibold mb-2">Access Control</h3>
+                  <p className="text-sm text-muted-foreground mb-2">Select which roles can access the Employees section:</p>
+                  <div className="flex gap-4">
+                    {['admin', 'hr', 'manager', 'employee', 'intern'].map(role => (
+                      <label key={role} className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={employeeAccessRoles.includes(role)}
+                          onChange={e => {
+                            if (e.target.checked) {
+                              setEmployeeAccessRoles([...employeeAccessRoles, role]);
+                            } else {
+                              setEmployeeAccessRoles(employeeAccessRoles.filter(r => r !== role));
+                            }
+                          }}
+                        />
+                        <span className="capitalize">{role}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-semibold mb-2">General Settings</h3>
+                  <p className="text-sm text-muted-foreground">Other settings can be added here.</p>
+                </div>
+              </div>
               <Button variant="destructive" className="mt-4 w-full" onClick={() => alert('Logged out!')}>Logout</Button>
             </div>
           )}
           {activeModule === 'projects' && (
             <div className="animate-fade-in">
-              <div className="p-8 bg-card rounded-2xl shadow-xl mb-8">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-2xl font-bold">Company Projects</h2>
-                  <Button className="" onClick={() => setShowProjectModal(true)}>Add Project</Button>
-                </div>
-                <p className="mb-2 text-muted-foreground">Manage and review all company projects here. Drag projects between columns to update status.</p>
+              {/* Page Navigation */}
+              <div className="flex gap-4 mb-6">
+                <Button variant={projectPage === 'list' ? 'default' : 'outline'} onClick={() => { setProjectPage('list'); setSelectedProject(null); setEditProject(null); }}>Project List</Button>
+                <Button variant={projectPage === 'kanban' ? 'default' : 'outline'} onClick={() => { setProjectPage('kanban'); setSelectedProject(null); setEditProject(null); }}>Kanban Board</Button>
               </div>
-              {/* Kanban Board */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {['Assigned', 'In Progress', 'Completed'].map(status => (
-                  <div key={status} className="bg-muted rounded-xl p-4 min-h-[300px]" onDragOver={e => e.preventDefault()} onDrop={e => {
-                    if (draggedProject) {
-                      setProjects(projects => projects.map(p => p.id === draggedProject.id ? { ...p, status } : p));
-                      setDraggedProject(null);
-                    }
-                  }}>
-                    <h3 className="font-semibold text-lg mb-3">{status}</h3>
-                    <div className="space-y-4">
-                      {projects.filter(p => p.status === status).map(p => (
-                        <div key={p.id} draggable onDragStart={() => setDraggedProject(p)} className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 cursor-move border border-border">
-                          <div className="flex justify-between items-center mb-2">
-                            <span className="font-bold text-primary">{p.name}</span>
-                            <span className="text-xs text-muted-foreground">{p.owner}</span>
-                          </div>
-                          <div className="text-xs mb-2">Team: {p.team && p.team.length ? p.team.join(', ') : '—'}</div>
-                          <div className="flex gap-2">
-                            {p.file && <a href={URL.createObjectURL(p.file)} target="_blank" rel="noopener noreferrer" className="text-primary underline text-xs">File</a>}
-                          </div>
+              {/* Project List Page */}
+              {projectPage === 'list' && (
+                <div className="bg-card rounded-2xl shadow-xl p-8 animate-fade-in-up">
+                  <h2 className="text-2xl font-bold mb-4">Project List</h2>
+                  <ul className="space-y-4">
+                    {projects.map((project, idx) => (
+                      <li key={project.id} className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 border border-border cursor-pointer transition-transform duration-300 hover:scale-105 hover:shadow-xl animate-fade-in-up" style={{animationDelay: `${idx * 60}ms`}} onClick={() => { setSelectedProject(project); setProjectPage('details'); }}>
+                        <div className="flex justify-between items-center mb-2">
+                          <span className="font-bold text-primary">{project.name}</span>
+                          <span className="text-xs text-muted-foreground">{project.owner}</span>
                         </div>
-                      ))}
-                    </div>
+                        <span className="text-xs text-muted-foreground">Team: {project.team && project.team.length ? project.team.join(', ') : '—'}</span>
+                        <Button variant="outline" size="sm" className="mt-2" onClick={e => { e.stopPropagation(); setEditProject(project); setProjectPage('edit'); }}>Edit</Button>
+                      </li>
+                    ))}
+                  </ul>
+                  <Button className="mt-6" onClick={() => setShowProjectModal(true)}>Add Project</Button>
+                </div>
+              )}
+              {/* Project Details Page */}
+              {projectPage === 'details' && selectedProject && (
+                <div className="p-8 bg-card rounded-2xl shadow-xl mb-8 animate-fade-in-up">
+                  <h2 className="text-2xl font-bold mb-4">Project Details</h2>
+                  <div className="space-y-2 animate-fade-in">
+                    <div><span className="font-semibold">Name:</span> {selectedProject.name}</div>
+                    <div><span className="font-semibold">Owner:</span> {selectedProject.owner}</div>
+                    <div><span className="font-semibold">Team:</span> {selectedProject.team && selectedProject.team.length ? selectedProject.team.join(', ') : '—'}</div>
+                    <div><span className="font-semibold">Budget:</span> {selectedProject.budget}</div>
+                    <div><span className="font-semibold">Status:</span> {selectedProject.status}</div>
+                    {selectedProject.file && (
+                      <div><span className="font-semibold">File:</span> <a href={URL.createObjectURL(selectedProject.file)} target="_blank" rel="noopener noreferrer" className="text-primary underline text-xs">View File</a></div>
+                    )}
                   </div>
-                ))}
-              </div>
+                  <div className="flex gap-2 mt-6">
+                    <Button variant="outline" onClick={() => setProjectPage('list')}>Back to List</Button>
+                    <Button variant="outline" onClick={() => { setEditProject(selectedProject); setProjectPage('edit'); }}>Edit Project</Button>
+                  </div>
+                </div>
+              )}
+              {/* Project Edit Page */}
+              {projectPage === 'edit' && editProject && (
+                <div className="p-8 bg-card rounded-2xl shadow-xl mb-8">
+                  <h2 className="text-2xl font-bold mb-4">Edit Project</h2>
+                  <form onSubmit={e => {
+                    e.preventDefault();
+                    setProjects(projects.map(p => p.id === editProject.id ? { ...editProject } : p));
+                    setProjectPage('details');
+                    setSelectedProject(editProject);
+                    setEditProject(null);
+                  }}>
+                    <div className="mb-3">
+                      <label className="block mb-1 font-medium">Project Name</label>
+                      <input type="text" className="w-full border rounded p-2" value={editProject.name} onChange={e => setEditProject({ ...editProject, name: e.target.value })} required />
+                    </div>
+                    <div className="mb-3">
+                      <label className="block mb-1 font-medium">Owner</label>
+                      <input type="text" className="w-full border rounded p-2" value={editProject.owner} onChange={e => setEditProject({ ...editProject, owner: e.target.value })} required />
+                    </div>
+                    <div className="mb-3">
+                      <label className="block mb-1 font-medium">Team (comma separated)</label>
+                      <input type="text" className="w-full border rounded p-2" value={editProject.team.join(', ')} onChange={e => setEditProject({ ...editProject, team: e.target.value.split(',').map(t => t.trim()).filter(Boolean) })} placeholder="Alice, Bob" />
+                    </div>
+                    <div className="mb-3">
+                      <label className="block mb-1 font-medium">Budget</label>
+                      <input type="text" className="w-full border rounded p-2" value={editProject.budget} onChange={e => setEditProject({ ...editProject, budget: e.target.value })} placeholder="$10,000" />
+                    </div>
+                    <div className="mb-3">
+                      <label className="block mb-1 font-medium">Upload File</label>
+                      <input type="file" className="w-full" onChange={e => setEditProject({ ...editProject, file: e.target.files?.[0] || null })} />
+                    </div>
+                    <div className="flex gap-2 mt-4">
+                      <Button type="submit" className="flex-1">Save</Button>
+                      <Button type="button" variant="outline" className="flex-1" onClick={() => { setEditProject(null); setProjectPage('details'); }}>Cancel</Button>
+                    </div>
+                  </form>
+                </div>
+              )}
+              {/* Kanban Board Page */}
+              {projectPage === 'kanban' && (
+                <div className="animate-fade-in">
+                  <div className="p-8 bg-card rounded-2xl shadow-xl mb-8">
+                    <h2 className="text-2xl font-bold text-indigo-700 mb-2">Company Projects Kanban</h2>
+                    <p className="mb-2 text-indigo-500">Drag projects between columns to update status.</p>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {['Assigned', 'In Progress', 'Completed'].map((status, idx) => (
+                      <div key={status} className="bg-white dark:bg-gray-900 rounded-xl p-4 min-h-[300px] shadow-lg animate-slide-in-up">
+                        <h3 className={`font-semibold text-lg mb-3 ${idx === 0 ? 'text-blue-700' : idx === 1 ? 'text-indigo-700' : 'text-purple-700'}`}>{status}</h3>
+                        <div className="flex flex-col gap-3">
+                          {projects.filter(p => p.status === status).map((p, pIdx) => (
+                            <div key={p.id}
+                              draggable
+                              onDragStart={() => setDraggedProject(p)}
+                              onDragEnd={() => setDraggedProject(null)}
+                              className={`bg-white dark:bg-gray-900 rounded-sm shadow p-2 cursor-move border border-border transition-transform duration-300 hover:scale-105 hover:shadow-xl animate-fade-in-up`} 
+                              style={{ minHeight: '40px', maxWidth: '100%', margin: '0 auto', animationDelay: `${pIdx * 60}ms` }}
+                            >
+                              <div className="flex-1 flex flex-col justify-center">
+                                <span className={`font-bold text-base ${idx === 0 ? 'text-blue-600' : idx === 1 ? 'text-indigo-600' : 'text-purple-600'} transition-colors duration-300`}>{p.name}</span>
+                                <span className="text-xs text-muted-foreground">Team: {p.team && p.team.length ? p.team.join(', ') : '—'}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        {/* Drop zone for moving projects */}
+                        <div
+                          className="mt-2 h-8 flex items-center justify-center text-xs text-gray-400 border-dashed border-2 border-gray-200 rounded"
+                          onDragOver={e => e.preventDefault()}
+                          onDrop={e => {
+                            if (draggedProject && draggedProject.status !== status) {
+                              setProjects(projects => projects.map(p => p.id === draggedProject.id ? { ...p, status } : p));
+                              setDraggedProject(null);
+                            }
+                          }}
+                        >
+                          {draggedProject ? `Drop here to move to ${status}` : ''}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
               {/* Project Add Modal */}
               {showProjectModal && (
                 <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
@@ -789,11 +901,12 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
                           owner: newProject.owner,
                           team: newProject.team.split(',').map(t => t.trim()).filter(Boolean),
                           file: newProject.file,
+                          budget: newProject.budget || '$0',
                           status: 'Assigned',
                         },
                       ]);
                       setShowProjectModal(false);
-                      setNewProject({ name: '', owner: '', team: '', file: null });
+                      setNewProject({ name: '', owner: '', team: '', file: null, budget: '' });
                     }}>
                       <div className="mb-3">
                         <label className="block mb-1 font-medium">Project Name</label>
@@ -806,6 +919,10 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
                       <div className="mb-3">
                         <label className="block mb-1 font-medium">Team (comma separated)</label>
                         <input type="text" className="w-full border rounded p-2" value={newProject.team} onChange={e => setNewProject({ ...newProject, team: e.target.value })} placeholder="Alice, Bob" />
+                      </div>
+                      <div className="mb-3">
+                        <label className="block mb-1 font-medium">Budget</label>
+                        <input type="text" className="w-full border rounded p-2" value={newProject.budget || ''} onChange={e => setNewProject({ ...newProject, budget: e.target.value })} placeholder="$10,000" />
                       </div>
                       <div className="mb-3">
                         <label className="block mb-1 font-medium">Upload File</label>
