@@ -1,8 +1,28 @@
 import React, { useState } from 'react';
-import { Card } from '@/components/ui/card';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { 
   DollarSign, 
   Users, 
@@ -16,7 +36,8 @@ import {
   Calculator,
   CreditCard,
   TrendingUp,
-  FileText
+  FileText,
+  MoreHorizontal
 } from 'lucide-react';
 
 interface PayrollRecord {

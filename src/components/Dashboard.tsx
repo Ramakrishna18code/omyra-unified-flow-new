@@ -9,6 +9,7 @@ import AnalyticsReports from './AnalyticsReports';
 import RecruitmentManagement from './RecruitmentManagement';
 import EmployeeManagement from './EmployeeManagement';
 import MeetingsManagement from './Settings';
+import ClientInformation from './ClientInformation';
 
 interface DashboardProps {
   userRole?: 'admin' | 'hr' | 'manager' | 'employee' | 'intern';
@@ -645,6 +646,11 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
                     </div>
                   </Card>
                 ))}
+              </div>
+
+              {/* Client Information Section */}
+              <div className="mt-8">
+                <ClientInformation />
               </div>
 
               {/* Enhanced Recent Activities */}
