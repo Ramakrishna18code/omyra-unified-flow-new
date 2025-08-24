@@ -10,12 +10,16 @@ import RecruitmentManagement from './RecruitmentManagement';
 import EmployeeManagement from './EmployeeManagement';
 import MeetingsManagement from './Settings';
 import ClientInformation from './ClientInformation';
+import { dashboardService, type DashboardStats, type Project, type Employee } from '../services/dashboardService';
+import { logAuthStatus } from '../utils/authStatus';
 
 interface DashboardProps {
   userRole?: 'admin' | 'hr' | 'manager' | 'employee' | 'intern';
+  user?: any;
+  onLogout?: () => void;
 }
 
-const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
+const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin', user, onLogout }) => {
   const [darkMode, setDarkMode] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [sidebarMode, setSidebarMode] = useState<'full' | 'mini' | 'hidden'>('full');
@@ -24,18 +28,29 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [showSuccess, setShowSuccess] = useState(false);
   
+  // Dashboard data state
+  const [dashboardStats, setDashboardStats] = useState<DashboardStats>({
+    employeeCount: 0,
+    totalProfits: 0,
+    totalProjects: 0,
+    totalBudget: 0,
+    totalAllocations: 0
+  });
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [projectDetails, setProjectDetails] = useState<Project[]>([]);
+  const [dashboardLoading, setDashboardLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState<string | null>(null);
+  
   // Daily timeline state
   const [currentTime, setCurrentTime] = useState(new Date());
   const [workDayProgress, setWorkDayProgress] = useState(0);
   const [timeOfDay, setTimeOfDay] = useState('');
   const [showTimeModal, setShowTimeModal] = useState(false);
   
-  // Project state for demo
-  const [projects, setProjects] = useState([
-    { id: 1, name: 'HR Portal Redesign', status: 'Assigned', owner: 'Alice', team: ['Alice'], file: null, budget: '$50,000' },
-    { id: 2, name: 'Payroll Automation', status: 'Completed', owner: 'Bob', team: ['Bob'], file: null, budget: '$30,000' },
-    { id: 3, name: 'Mobile App', status: 'In Progress', owner: 'Charlie', team: ['Charlie', 'Alice'], file: null, budget: '$70,000' },
-  ]);
+  // Project state - now using backend integration
+  const [projects, setProjects] = useState<any[]>([]);
+  const [projectsLoading, setProjectsLoading] = useState(false);
+  const [projectsError, setProjectsError] = useState<string | null>(null);
   const [showProjectModal, setShowProjectModal] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', owner: '', team: '', file: null, budget: '' });
   const [draggedProject, setDraggedProject] = useState(null);
@@ -53,6 +68,111 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
 
   // Add state for employee access roles
   const [employeeAccessRoles, setEmployeeAccessRoles] = useState(['admin', 'hr']);
+
+  // Fetch dashboard data on component mount
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      if (userRole === 'admin') {
+        try {
+          setDashboardLoading(true);
+          setDashboardError(null);
+          
+          // Check if user is authenticated first
+          const token = localStorage.getItem('token');
+          if (!token) {
+            console.warn('⚠️ No authentication token found. User needs to login first.');
+            setDashboardError('Please login to view dashboard data');
+            setDashboardLoading(false);
+            return;
+          }
+          
+          console.log('🔄 Loading dashboard data...');
+          
+          // Fetch comprehensive dashboard stats
+          const stats = await dashboardService.getDashboardStats();
+          setDashboardStats(stats);
+          
+          // Fetch all employees
+          const employeesData = await dashboardService.getAllEmployees();
+          setEmployees(employeesData.employees);
+          
+          // Fetch project details
+          const profitsData = await dashboardService.getTotalProfits();
+          setProjectDetails(profitsData.projectDetails);
+          
+          console.log('✅ Dashboard data loaded successfully');
+        } catch (error: any) {
+          console.error('❌ Error loading dashboard data:', error);
+          if (error.message.includes('Authentication required') || error.message.includes('Session expired')) {
+            setDashboardError('Please login to access dashboard');
+          } else {
+            setDashboardError('Failed to load dashboard data');
+          }
+        } finally {
+          setDashboardLoading(false);
+        }
+      }
+    };
+
+    fetchDashboardData();
+  }, [userRole]);
+
+  // Fetch projects data
+  const fetchProjectsData = async () => {
+    if (userRole === 'admin') {
+      try {
+        setProjectsLoading(true);
+        setProjectsError(null);
+        
+        // Check if user is authenticated first
+        const token = localStorage.getItem('token');
+        if (!token) {
+          console.warn('⚠️ No authentication token found. User needs to login first.');
+          setProjectsError('Please login to view projects data');
+          setProjectsLoading(false);
+          return;
+        }
+        
+        console.log('🔄 Loading projects data...');
+        
+        // Fetch all projects
+        const projectsData = await dashboardService.getAllProjects();
+        
+        // Transform backend projects to frontend format
+        const transformedProjects = projectsData.projects.map((project: any) => ({
+          id: project._id,
+          name: project.name,
+          budget: `$${(project.budget / 1000).toFixed(1)}K`,
+          status: project.team && project.team.length > 0 ? 'In Progress' : 'Assigned',
+          owner: project.team && project.team.length > 0 ? project.team[0].employee.name : 'Unassigned',
+          team: project.team.map((member: any) => member.employee.name),
+          file: null,
+          _id: project._id,
+          rawBudget: project.budget,
+          allocation: project.team.reduce((acc: number, member: any) => acc + member.allocation, 0)
+        }));
+        
+        setProjects(transformedProjects);
+        console.log('✅ Projects data loaded successfully', transformedProjects);
+      } catch (error: any) {
+        console.error('❌ Error loading projects data:', error);
+        if (error.message.includes('Authentication required') || error.message.includes('Session expired')) {
+          setProjectsError('Please login to access projects');
+        } else {
+          setProjectsError('Failed to load projects data');
+        }
+      } finally {
+        setProjectsLoading(false);
+      }
+    }
+  };
+
+  // Fetch projects when activeModule changes to projects
+  useEffect(() => {
+    if (activeModule === 'projects') {
+      fetchProjectsData();
+    }
+  }, [activeModule, userRole]);
 
   // Update time every minute
   useEffect(() => {
@@ -150,26 +270,26 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
   const quickStats = [
     {
       title: 'Total Employees',
-      value: '247',
-      change: '+12%',
+      value: (dashboardStats.employeeCount || 0).toString(),
+      change: `+${employees.length > 0 ? Math.round((employees.length / 10) * 100) / 10 : 0}%`,
       color: 'primary'
     },
     {
-      title: 'Monthly Revenue',
-      value: '$125.8K',
+      title: 'Total Projects',
+      value: (dashboardStats.totalProjects || 0).toString(),
       change: '+8.2%',
       color: 'accent'
     },
     {
-      title: 'Active Projects',
-      value: '18',
-      change: '+3',
+      title: 'Total Budget',
+      value: `$${((dashboardStats.totalBudget || 0) / 1000).toFixed(1)}K`,
+      change: '+15%',
       color: 'warning'
     },
     {
-      title: 'Pending Approvals',
-      value: '7',
-      change: '-2',
+      title: 'Total Profits',
+      value: `$${((dashboardStats.totalProfits || 0) / 1000).toFixed(1)}K`,
+      change: `+${dashboardStats.totalProfits && dashboardStats.totalBudget ? Math.round((dashboardStats.totalProfits / dashboardStats.totalBudget) * 100) : 0}%`,
       color: 'destructive'
     }
   ];
@@ -192,6 +312,50 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
   };
   const handleHelp = () => {
     alert('Help & Support coming soon!');
+  };
+
+  // Project management handlers
+  const handleCreateProject = async (projectData: { name: string; budget: string; allocations?: Record<string, number> }) => {
+    try {
+      setProjectsLoading(true);
+      
+      // Convert budget string to number (remove $ and K, convert to actual value)
+      const budgetValue = parseFloat(projectData.budget.replace(/[$,K]/g, '')) * (projectData.budget.includes('K') ? 1000 : 1);
+      
+      const newProjectData = {
+        name: projectData.name,
+        budget: budgetValue,
+        allocations: projectData.allocations || {}
+      };
+      
+      await dashboardService.createProject(newProjectData);
+      await fetchProjectsData(); // Refresh projects list
+      setShowProjectModal(false);
+      setNewProject({ name: '', owner: '', team: '', file: null, budget: '' });
+      
+      console.log('✅ Project created successfully');
+    } catch (error) {
+      console.error('❌ Error creating project:', error);
+      alert('Failed to create project. Please try again.');
+    } finally {
+      setProjectsLoading(false);
+    }
+  };
+
+  const handleUpdateProject = async (projectId: string, updateData: { budget?: number; allocations?: Record<string, number> }) => {
+    try {
+      setProjectsLoading(true);
+      
+      await dashboardService.updateProject(projectId, updateData);
+      await fetchProjectsData(); // Refresh projects list
+      
+      console.log('✅ Project updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating project:', error);
+      alert('Failed to update project. Please try again.');
+    } finally {
+      setProjectsLoading(false);
+    }
   };
 
   return (
@@ -267,6 +431,19 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
             <Button variant="ghost" size="icon-sm" onClick={toggleTheme} className="hover-rotate">
               {darkMode ? <span className="h-5 w-5">☀️</span> : <span className="h-5 w-5">🌙</span>}
             </Button>
+
+            {/* Debug Auth Status Button (only in development) */}
+            {process.env.NODE_ENV === 'development' && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                className="hover-scale" 
+                onClick={() => logAuthStatus()}
+                title="Check Authentication Status"
+              >
+                🔍 Auth
+              </Button>
+            )}
 
             {/* Settings */}
             <Button variant="ghost" size="icon-sm" className="hover-scale" onClick={handleSettings}>
@@ -579,128 +756,304 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
 
           {activeModule === 'overview' && (
             <div className="space-y-8 animate-fade-in">
-              {/* Enhanced Welcome Section */}
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 animate-fade-in-up">
-                <div className="space-y-2">
-                  <h2 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent animate-gradient">
-                    Good morning, John! 👋
-                  </h2>
-                  <p className="text-lg text-muted-foreground animate-fade-in-up" style={{animationDelay: '200ms'}}>
-                    Here's what's happening at your company today.
-                  </p>
+              {/* Dashboard Loading State */}
+              {dashboardLoading && (
+                <div className="flex items-center justify-center p-8 bg-card rounded-2xl shadow-xl animate-pulse">
+                  <div className="flex items-center gap-4">
+                    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                    <span className="text-lg font-medium">Loading dashboard data...</span>
+                  </div>
                 </div>
-                <div className="flex gap-3 animate-fade-in-right">
+              )}
+
+              {/* Dashboard Error State */}
+              {dashboardError && (
+                <div className="flex items-center justify-center p-8 bg-destructive/10 border border-destructive/20 rounded-2xl">
+                  <div className="text-center">
+                    <div className="text-destructive font-semibold mb-2">⚠️ Error Loading Dashboard</div>
+                    <div className="text-sm text-muted-foreground">{dashboardError}</div>
                     <Button 
-                    className="hover-lift group"
-                    onClick={() => handleModuleChange('meetings')}
-                    disabled={isLoading}
-                    >
-                    Schedule Meeting
-                    </Button>
-                    <Button 
-                    className="hover-glow group"
-                    onClick={() => handleModuleChange('employees')}
-                    disabled={isLoading}
-                    >
-                    Add Employee
-                    </Button>
-                </div>
-              </div>
+                      variant="outline" 
+                      size="sm" 
+                      className="mt-4"
+                      onClick={async () => {
+                        // Check authentication first
+                        const token = localStorage.getItem('token');
+                        if (!token) {
+                          setDashboardError('Please login to access dashboard');
+                          return;
+                        }
 
-              {/* Enhanced Quick Stats */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                {quickStats.map((stat, index) => (
-                  <Card 
-                    key={index} 
-                    className={`
-                      neu-surface p-6 hover-lift group cursor-pointer
-                      stagger-item animate-fade-in-up
-                      relative overflow-hidden
-                    `} 
-                    style={{animationDelay: `${index * 100}ms`}}
-                    onClick={() => {
-                      // Navigate to relevant module based on stat type
-                      if (stat.title.includes('Employees')) handleModuleChange('employees');
-                      else if (stat.title.includes('Revenue')) handleModuleChange('analytics');
-                      else if (stat.title.includes('Projects')) handleModuleChange('documents');
-                      else if (stat.title.includes('Approvals')) handleModuleChange('settings');
-                    }}
-                  >
-                    {/* Hover gradient overlay */}
-                    <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    
-                    <div className="relative flex items-center justify-between">
-                      <div className="space-y-2">
-                        <p className="text-sm text-muted-foreground group-hover:text-primary transition-colors">
-                          {stat.title}
-                        </p>
-                        <p className="text-3xl font-bold group-hover:scale-105 transition-transform">
-                          {stat.value}
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <span className={`text-sm font-medium ${stat.change.startsWith('+') ? 'text-accent' : 'text-destructive'}`}>{stat.change}</span>
-                        </div>
-                        <div className={`p-3 rounded-xl bg-gradient-to-r ${stat.color === 'primary' ? 'from-primary/10 to-primary/20' : ''}${stat.color === 'accent' ? 'from-accent/10 to-accent/20' : ''}${stat.color === 'warning' ? 'from-warning/10 to-warning/20' : ''}${stat.color === 'destructive' ? 'from-destructive/10 to-destructive/20' : ''} group-hover:scale-110 group-hover:animate-glow transition-all duration-300`}>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-
-              {/* Client Information Section */}
-              <div className="mt-8">
-                <ClientInformation />
-              </div>
-
-              {/* Enhanced Recent Activities */}
-              <Card className="neu-surface p-6 animate-fade-in-up" style={{animationDelay: '600ms'}}>
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-semibold animate-fade-in-left">Recent Activities</h3>
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="hover-lift"
-                    onClick={() => handleModuleChange('analytics')}
-                    disabled={isLoading}
-                  >
-                    View All
-                  </Button>
-                </div>
-                
-                <div className="space-y-4">
-                  {recentActivities.map((activity, index) => (
-                    <div 
-                      key={index} 
-                      className={`
-                        flex items-start gap-4 p-4 rounded-xl 
-                        bg-muted/30 hover:bg-muted/50 
-                        transition-all duration-300 cursor-pointer
-                        hover-lift group stagger-item
-                      `} 
-                      style={{animationDelay: `${700 + index * 100}ms`}}
-                      onClick={() => {
-                        // Navigate based on activity type
-                        if (activity.type === 'New hire') handleModuleChange('employees');
-                        else if (activity.type === 'Leave request') handleModuleChange('attendance');
-                        else if (activity.type === 'Project update') handleModuleChange('documents');
-                        else if (activity.type === 'Expense approved') handleModuleChange('payroll');
+                        setDashboardLoading(true);
+                        setDashboardError(null);
+                        try {
+                          const stats = await dashboardService.getDashboardStats();
+                          setDashboardStats(stats);
+                          const employeesData = await dashboardService.getAllEmployees();
+                          setEmployees(employeesData.employees);
+                          const profitsData = await dashboardService.getTotalProfits();
+                          setProjectDetails(profitsData.projectDetails);
+                        } catch (error: any) {
+                          if (error.message.includes('Authentication required') || error.message.includes('Session expired')) {
+                            setDashboardError('Please login to access dashboard');
+                          } else {
+                            setDashboardError('Failed to load dashboard data');
+                          }
+                        } finally {
+                          setDashboardLoading(false);
+                        }
                       }}
                     >
-                      <div className="h-2 w-2 rounded-full bg-primary mt-2 group-hover:scale-125 transition-transform"></div>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <Badge className="text-xs group-hover:scale-105 transition-transform">
-                            {activity.type}
-                          </Badge>
-                          <span className="text-sm text-muted-foreground">{activity.time}</span>
-                        </div>
-                        <p className="text-sm mt-1 group-hover:text-primary transition-colors">{activity.description}</p>
-                      </div>
-                    </div>
-                  ))}
+                      Retry
+                    </Button>
+                  </div>
                 </div>
-              </Card>
+              )}
+
+              {/* Dashboard Content - Only show when not loading and no error */}
+              {!dashboardLoading && !dashboardError && (
+                <>
+                  {/* Enhanced Welcome Section */}
+                  <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 animate-fade-in-up">
+                    <div className="space-y-2">
+                      <h2 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent animate-gradient">
+                        {(() => {
+                          const hour = currentTime.getHours();
+                          let greeting = 'Good morning';
+                          let emoji = '🌅';
+                          
+                          if (hour >= 5 && hour < 12) {
+                            greeting = 'Good morning';
+                            emoji = '🌅';
+                          } else if (hour >= 12 && hour < 17) {
+                            greeting = 'Good afternoon';
+                            emoji = '☀️';
+                          } else if (hour >= 17 && hour < 21) {
+                            greeting = 'Good evening';
+                            emoji = '🌆';
+                          } else {
+                            greeting = 'Good night';
+                            emoji = '🌙';
+                          }
+                          
+                          return `${greeting}, ${user?.name || 'John'}! ${emoji}`;
+                        })()}
+                      </h2>
+                      {/* <p className="text-lg text-muted-foreground animate-fade-in-up" style={{animationDelay: '200ms'}}>
+                        {(() => {
+                          const hour = currentTime.getHours();
+                          if (hour >= 5 && hour < 12) {
+                            return "Ready to start a productive day at your company!";
+                          } else if (hour >= 12 && hour < 17) {
+                            return "Here's what's happening at your company this afternoon.";
+                          } else if (hour >= 17 && hour < 21) {
+                            return "Wrapping up the day - here's your company overview.";
+                          } else {
+                            return "Working late? Here's your company status.";
+                          }
+                        })()}
+                      </p> */}
+                      {/* {(dashboardStats.employeeCount || 0) > 0 && (
+                        <p className="text-sm text-muted-foreground animate-fade-in-up" style={{animationDelay: '300ms'}}>
+                          Managing {dashboardStats.employeeCount} employees across {dashboardStats.totalProjects || 0} projects with ${((dashboardStats.totalBudget || 0) / 1000).toFixed(1)}K total budget
+                        </p>
+                      )} */}
+                    </div>
+                    <div className="flex gap-3 animate-fade-in-right">
+                        <Button 
+                        className="hover-lift group"
+                        onClick={() => handleModuleChange('meetings')}
+                        disabled={isLoading}
+                        >
+                        {(() => {
+                          const hour = currentTime.getHours();
+                          if (hour >= 5 && hour < 12) {
+                            return "Start Meeting";
+                          } else if (hour >= 12 && hour < 17) {
+                            return "Schedule Meeting";
+                          } else {
+                            return "Plan Meeting";
+                          }
+                        })()}
+                        </Button>
+                        <Button 
+                        className="hover-glow group"
+                        onClick={() => handleModuleChange('employees')}
+                        disabled={isLoading}
+                        >
+                        {(() => {
+                          const hour = currentTime.getHours();
+                          if (hour >= 5 && hour < 12) {
+                            return "Add Employee";
+                          } else if (hour >= 12 && hour < 17) {
+                            return "Manage Team";
+                          } else {
+                            return "View Employees";
+                          }
+                        })()}
+                        </Button>
+                    </div>
+                  </div>
+
+                  {/* Enhanced Quick Stats */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    {quickStats.map((stat, index) => (
+                      <Card 
+                        key={index} 
+                        className={`
+                          neu-surface p-6 hover-lift group cursor-pointer
+                          stagger-item animate-fade-in-up
+                          relative overflow-hidden
+                        `} 
+                        style={{animationDelay: `${index * 100}ms`}}
+                        onClick={() => {
+                          // Navigate to relevant module based on stat type
+                          if (stat.title.includes('Employees')) handleModuleChange('employees');
+                          else if (stat.title.includes('Projects')) handleModuleChange('projects');
+                          else if (stat.title.includes('Budget')) handleModuleChange('analytics');
+                          else if (stat.title.includes('Profits')) handleModuleChange('analytics');
+                        }}
+                      >
+                        {/* Hover gradient overlay */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-accent/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                        
+                        <div className="relative flex items-center justify-between">
+                          <div className="space-y-2">
+                            <p className="text-sm text-muted-foreground group-hover:text-primary transition-colors">
+                              {stat.title}
+                            </p>
+                            <p className="text-3xl font-bold group-hover:scale-105 transition-transform">
+                              {stat.value}
+                            </p>
+                            <div className="flex items-center gap-2">
+                              <span className={`text-sm font-medium ${stat.change.startsWith('+') ? 'text-accent' : 'text-destructive'}`}>{stat.change}</span>
+                            </div>
+                            <div className={`p-3 rounded-xl bg-gradient-to-r ${stat.color === 'primary' ? 'from-primary/10 to-primary/20' : ''}${stat.color === 'accent' ? 'from-accent/10 to-accent/20' : ''}${stat.color === 'warning' ? 'from-warning/10 to-warning/20' : ''}${stat.color === 'destructive' ? 'from-destructive/10 to-destructive/20' : ''} group-hover:scale-110 group-hover:animate-glow transition-all duration-300`}>
+                            </div>
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+
+                  {/* Real-time Project Summary */}
+                  {projectDetails.length > 0 && (
+                    <Card className="neu-surface p-6 animate-fade-in-up" style={{animationDelay: '500ms'}}>
+                      <div className="flex items-center justify-between mb-6">
+                        <h3 className="text-xl font-semibold animate-fade-in-left">Project Overview</h3>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="hover-lift"
+                          onClick={() => handleModuleChange('projects')}
+                          disabled={isLoading}
+                        >
+                          View All Projects
+                        </Button>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        {projectDetails.slice(0, 6).map((project, index) => (
+                          <div 
+                            key={project.projectId} 
+                            className={`
+                              p-4 rounded-xl bg-muted/30 hover:bg-muted/50 
+                              transition-all duration-300 cursor-pointer
+                              hover-lift group stagger-item border border-border/20
+                            `} 
+                            style={{animationDelay: `${600 + index * 100}ms`}}
+                          >
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between">
+                                <h4 className="font-semibold text-sm group-hover:text-primary transition-colors">
+                                  {project.projectName}
+                                </h4>
+                                <Badge variant={project.profit > 0 ? 'default' : 'destructive'} className="text-xs">
+                                  ${(project.profit / 1000).toFixed(1)}K
+                                </Badge>
+                              </div>
+                              <div className="text-xs text-muted-foreground space-y-1">
+                                <div>Budget: ${(project.budget / 1000).toFixed(1)}K</div>
+                                <div>Team: {project.team.length} members</div>
+                                <div className="flex items-center gap-1">
+                                  <div className="w-2 h-2 rounded-full bg-green-500"></div>
+                                  <span>Profit Margin: {((project.profit / project.budget) * 100).toFixed(1)}%</span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </Card>
+                  )}
+
+                  {/* Client Information Section */}
+                  <div className="mt-8">
+                    <ClientInformation />
+                  </div>
+
+                  {/* Enhanced Recent Activities with Real Employee Data */}
+                  <Card className="neu-surface p-6 animate-fade-in-up" style={{animationDelay: '600ms'}}>
+                    <div className="flex items-center justify-between mb-6">
+                      <h3 className="text-xl font-semibold animate-fade-in-left">Recent Activities</h3>
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="hover-lift"
+                        onClick={() => handleModuleChange('analytics')}
+                        disabled={isLoading}
+                      >
+                        View All
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {employees.slice(0, 4).map((employee, index) => (
+                        <div 
+                          key={employee._id} 
+                          className={`
+                            flex items-start gap-4 p-4 rounded-xl 
+                            bg-muted/30 hover:bg-muted/50 
+                            transition-all duration-300 cursor-pointer
+                            hover-lift group stagger-item
+                          `} 
+                          style={{animationDelay: `${700 + index * 100}ms`}}
+                          onClick={() => handleModuleChange('employees')}
+                        >
+                          <div className="h-2 w-2 rounded-full bg-primary mt-2 group-hover:scale-125 transition-transform"></div>
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <Badge className="text-xs group-hover:scale-105 transition-transform">
+                                Employee
+                              </Badge>
+                              <span className="text-sm text-muted-foreground">
+                                {new Date(employee.createdAt).toLocaleDateString()}
+                              </span>
+                            </div>
+                            <p className="text-sm mt-1 group-hover:text-primary transition-colors">
+                              {employee.name} ({employee.email}) joined as {employee.role}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                      
+                      {employees.length === 0 && (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <div className="text-sm">No recent activities</div>
+                          <Button 
+                            variant="outline" 
+                            size="sm" 
+                            className="mt-2"
+                            onClick={() => handleModuleChange('employees')}
+                          >
+                            Add First Employee
+                          </Button>
+                        </div>
+                      )}
+                    </div>
+                  </Card>
+                </>
+              )}
             </div>
           )}
           
@@ -773,19 +1126,70 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
               {projectPage === 'list' && (
                 <div className="bg-card rounded-2xl shadow-xl p-8 animate-fade-in-up">
                   <h2 className="text-2xl font-bold mb-4">Project List</h2>
-                  <ul className="space-y-4">
-                    {projects.map((project, idx) => (
-                      <li key={project.id} className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 border border-border cursor-pointer transition-transform duration-300 hover:scale-105 hover:shadow-xl animate-fade-in-up" style={{animationDelay: `${idx * 60}ms`}} onClick={() => { setSelectedProject(project); setProjectPage('details'); }}>
-                        <div className="flex justify-between items-center mb-2">
-                          <span className="font-bold text-primary">{project.name}</span>
-                          <span className="text-xs text-muted-foreground">{project.owner}</span>
+                  
+                  {/* Projects Loading State */}
+                  {projectsLoading && (
+                    <div className="flex items-center justify-center p-8 animate-pulse">
+                      <div className="flex items-center gap-4">
+                        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
+                        <span className="text-lg font-medium">Loading projects...</span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Projects Error State */}
+                  {projectsError && !projectsLoading && (
+                    <div className="flex items-center justify-center p-8 bg-destructive/10 border border-destructive/20 rounded-2xl">
+                      <div className="text-center">
+                        <div className="text-destructive font-semibold mb-2">⚠️ Error Loading Projects</div>
+                        <div className="text-sm text-muted-foreground">{projectsError}</div>
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="mt-4"
+                          onClick={fetchProjectsData}
+                        >
+                          Retry
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Projects List */}
+                  {!projectsLoading && !projectsError && (
+                    <>
+                      {projects.length > 0 ? (
+                        <ul className="space-y-4">
+                          {projects.map((project, idx) => (
+                            <li key={project.id} className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 border border-border cursor-pointer transition-transform duration-300 hover:scale-105 hover:shadow-xl animate-fade-in-up" style={{animationDelay: `${idx * 60}ms`}} onClick={() => { setSelectedProject(project); setProjectPage('details'); }}>
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="font-bold text-primary">{project.name}</span>
+                                <span className="text-xs text-muted-foreground">{project.owner}</span>
+                              </div>
+                              <div className="flex justify-between items-center mb-2">
+                                <span className="text-xs text-muted-foreground">Team: {project.team && project.team.length ? project.team.join(', ') : '—'}</span>
+                                <span className="text-sm font-semibold text-accent">{project.budget}</span>
+                              </div>
+                              <div className="flex justify-between items-center">
+                                <span className="text-xs text-muted-foreground">Status: {project.status}</span>
+                                <div className="flex gap-2">
+                                  <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); setEditProject(project); setProjectPage('edit'); }}>Edit</Button>
+                                </div>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div className="text-center py-8 text-muted-foreground">
+                          <div className="text-lg mb-2">No projects found</div>
+                          <div className="text-sm">Create your first project to get started</div>
                         </div>
-                        <span className="text-xs text-muted-foreground">Team: {project.team && project.team.length ? project.team.join(', ') : '—'}</span>
-                        <Button variant="outline" size="sm" className="mt-2" onClick={e => { e.stopPropagation(); setEditProject(project); setProjectPage('edit'); }}>Edit</Button>
-                      </li>
-                    ))}
-                  </ul>
-                  <Button className="mt-6" onClick={() => setShowProjectModal(true)}>Add Project</Button>
+                      )}
+                      <Button className="mt-6" onClick={() => setShowProjectModal(true)} disabled={projectsLoading}>
+                        Add Project
+                      </Button>
+                    </>
+                  )}
                 </div>
               )}
               {/* Project Details Page */}
@@ -897,46 +1301,71 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin' }) => {
                   <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-2xl w-full max-w-md relative">
                     <button className="absolute top-2 right-2 text-2xl" onClick={() => setShowProjectModal(false)}>×</button>
                     <h3 className="text-xl font-bold mb-4">Add Project</h3>
-                    <form onSubmit={e => {
+                    <form onSubmit={async (e) => {
                       e.preventDefault();
-                      setProjects([
-                        ...projects,
-                        {
-                          id: Date.now(),
-                          name: newProject.name,
-                          owner: newProject.owner,
-                          team: newProject.team.split(',').map(t => t.trim()).filter(Boolean),
-                          file: newProject.file,
-                          budget: newProject.budget || '$0',
-                          status: 'Assigned',
-                        },
-                      ]);
-                      setShowProjectModal(false);
-                      setNewProject({ name: '', owner: '', team: '', file: null, budget: '' });
+                      
+                      if (!newProject.name || !newProject.budget) {
+                        alert('Please fill in project name and budget');
+                        return;
+                      }
+                      
+                      await handleCreateProject({
+                        name: newProject.name,
+                        budget: newProject.budget,
+                        allocations: {} // Start with empty allocations
+                      });
                     }}>
                       <div className="mb-3">
                         <label className="block mb-1 font-medium">Project Name</label>
-                        <input type="text" className="w-full border rounded p-2" value={newProject.name} onChange={e => setNewProject({ ...newProject, name: e.target.value })} required />
-                      </div>
-                      <div className="mb-3">
-                        <label className="block mb-1 font-medium">Owner</label>
-                        <input type="text" className="w-full border rounded p-2" value={newProject.owner} onChange={e => setNewProject({ ...newProject, owner: e.target.value })} required />
-                      </div>
-                      <div className="mb-3">
-                        <label className="block mb-1 font-medium">Team (comma separated)</label>
-                        <input type="text" className="w-full border rounded p-2" value={newProject.team} onChange={e => setNewProject({ ...newProject, team: e.target.value })} placeholder="Alice, Bob" />
+                        <input 
+                          type="text" 
+                          className="w-full border rounded p-2" 
+                          value={newProject.name} 
+                          onChange={e => setNewProject({ ...newProject, name: e.target.value })} 
+                          required 
+                          placeholder="Enter project name"
+                        />
                       </div>
                       <div className="mb-3">
                         <label className="block mb-1 font-medium">Budget</label>
-                        <input type="text" className="w-full border rounded p-2" value={newProject.budget || ''} onChange={e => setNewProject({ ...newProject, budget: e.target.value })} placeholder="$10,000" />
+                        <input 
+                          type="text" 
+                          className="w-full border rounded p-2" 
+                          value={newProject.budget || ''} 
+                          onChange={e => setNewProject({ ...newProject, budget: e.target.value })} 
+                          placeholder="e.g., 50000 or 50K" 
+                          required
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Enter amount in dollars (e.g., 50000 or 50K)
+                        </p>
                       </div>
                       <div className="mb-3">
-                        <label className="block mb-1 font-medium">Upload File</label>
-                        <input type="file" className="w-full" onChange={e => setNewProject({ ...newProject, file: e.target.files?.[0] || null })} />
+                        <label className="block mb-1 font-medium text-muted-foreground">Team Allocation</label>
+                        <p className="text-xs text-muted-foreground mb-2">
+                          Team members can be allocated after project creation
+                        </p>
                       </div>
                       <div className="flex gap-2 mt-4">
-                        <Button type="submit" className="flex-1">Add Project</Button>
-                        <Button type="button" variant="outline" className="flex-1" onClick={() => setShowProjectModal(false)}>Cancel</Button>
+                        <Button 
+                          type="submit" 
+                          className="flex-1" 
+                          disabled={projectsLoading}
+                        >
+                          {projectsLoading ? 'Creating...' : 'Add Project'}
+                        </Button>
+                        <Button 
+                          type="button" 
+                          variant="outline" 
+                          className="flex-1" 
+                          onClick={() => {
+                            setShowProjectModal(false);
+                            setNewProject({ name: '', owner: '', team: '', file: null, budget: '' });
+                          }}
+                          disabled={projectsLoading}
+                        >
+                          Cancel
+                        </Button>
                       </div>
                     </form>
                   </div>

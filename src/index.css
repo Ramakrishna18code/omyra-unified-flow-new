@@ -1,9 +1,6 @@
 @tailwind base;
-@tailwind components;
+@tailwind components;  
 @tailwind utilities;
-
-/* Import Shared Professional UI Utilities */
-@import './styles/shared.css';
 
 /* Enterprise HR & Finance Tool Design System */
 

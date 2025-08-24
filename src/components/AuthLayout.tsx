@@ -4,6 +4,9 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { useToast } from '@/hooks/use-toast';
+import { apiService } from '@/services/api';
+import ErrorLogger from '@/utils/errorLogger';
 import { 
   Building2,
   Mail,
@@ -13,11 +16,12 @@ import {
   ArrowRight,
   Shield,
   Users,
-  BarChart3
+  BarChart3,
+  Loader2
 } from 'lucide-react';
 
 interface AuthLayoutProps {
-  onLogin: (role: string) => void;
+  onLogin: (role: string, user: any) => void;
 }
 
 const AuthLayout: React.FC<AuthLayoutProps> = ({ onLogin }) => {
@@ -25,12 +29,129 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ onLogin }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [name, setName] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const { toast } = useToast();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Log component initialization
+  React.useEffect(() => {
+    console.log('🎬 [AuthLayout] Component mounted and ready for input');
+    console.log('📝 [Form State] Initial mode: Login');
+    return () => {
+      console.log('🎬 [AuthLayout] Component unmounted');
+    };
+  }, []);
+
+  // Log form state changes
+  React.useEffect(() => {
+    const isEmail = email.includes('@');
+    console.log(`📝 [Form Update] Email/Name: "${email}" | Type: ${isEmail ? 'Email' : 'Name'}`);
+  }, [email]);
+
+  React.useEffect(() => {
+    console.log(`🔒 [Form Update] Password: "${password}" (Length: ${password.length})`);
+  }, [password]);
+
+  React.useEffect(() => {
+    console.log(`👤 [Form Update] Name: "${name}"`);
+  }, [name]);
+
+  React.useEffect(() => {
+    console.log(`🔄 [Form Mode] ${isLogin ? 'Login' : 'Register'} mode`);
+  }, [isLogin]);
+
+  // Enhanced input handlers with detailed logging
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const isEmail = value.includes('@');
+    console.log(`📧 [Email/Name Input] "${value}" | Length: ${value.length} | Type: ${isEmail ? 'Email' : 'Name'} | Valid: ${isEmail ? value.includes('@') : value.length > 0}`);
+    setEmail(value);
+  };
+
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    console.log(`🔑 [Password Input] "${value}" | Length: ${value.length} | Strength: ${value.length < 6 ? 'Weak' : value.length < 10 ? 'Medium' : 'Strong'}`);
+    setPassword(value);
+  };
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    console.log(`👤 [Name Input] "${value}" | Length: ${value.length}`);
+    setName(value);
+  };
+
+  const handleFormModeToggle = () => {
+    const newMode = !isLogin;
+    console.log(`🔄 [Mode Switch] Switching to ${newMode ? 'Register' : 'Login'} mode`);
+    setIsLogin(newMode);
+    // Clear form when switching modes
+    setEmail('');
+    setPassword('');
+    setName('');
+    console.log(`🧹 [Form Clear] All fields cleared`);
+  };
+
+  const handleShowPasswordToggle = () => {
+    const newState = !showPassword;
+    console.log(`👁️ [Password Visibility] ${newState ? 'Showing' : 'Hiding'} password`);
+    setShowPassword(newState);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Demo login - in production this would validate against your backend
-    const role = email.includes('admin') ? 'admin' : 'employee';
-    onLogin(role);
+    setIsLoading(true);
+
+    // Log complete form submission
+    console.group(`🚀 [Form Submit] ${isLogin ? 'Login' : 'Registration'} Attempt`);
+    console.log(`📧 Email/Name: "${email}" | Type: ${email.includes('@') ? 'Email' : 'Name'}`);
+    console.log(`🔑 Password: "${password}" (Length: ${password.length})`);
+    if (!isLogin) console.log(`👤 Name: "${name}"`);
+    console.log(`⏰ Timestamp: ${new Date().toISOString()}`);
+    console.groupEnd();
+
+    try {
+      if (isLogin) {
+        // Login
+        console.log("🔐 Attempting login...");
+        const response = await apiService.login({ email, password });
+        console.log("✅ Login successful!");
+        console.log("📊 Response data:", response); // Debug log to see structure
+        toast({
+          title: "Success",
+          description: "Logged in successfully!",
+        });
+        // Handle both flat structure (admin) and nested structure (employees)
+        const user = response.user || response; // Use response.user if exists, otherwise use response itself
+        const userRole = user.role || 'user'; // Default to 'user' if role is missing
+        console.log("👤 User object:", user);
+        console.log("🎭 User role:", userRole);
+        onLogin(userRole, user);
+      } else {
+        // Register
+        console.log("📝 Attempting registration...");
+        await apiService.register({ name, email, password });
+        console.log("✅ Registration successful!");
+        toast({
+          title: "Success", 
+          description: "Account created successfully! Please login.",
+        });
+        setIsLogin(true);
+        setName('');
+        setEmail('');
+        setPassword('');
+      }
+    } catch (error: any) {
+      console.error("❌ Authentication failed:", error);
+      ErrorLogger.log(error, 'Authentication Error', { email, isLogin });
+      toast({
+        title: "Error",
+        description: error.message || "Authentication failed",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+      console.log("🏁 Form submission completed");
+    }
   };
 
   const features = [
@@ -96,8 +217,9 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ onLogin }) => {
           <div className="p-4 rounded-xl neu-inset bg-muted/30">
             <h4 className="font-medium text-sm mb-2">Demo Credentials:</h4>
             <div className="text-xs text-muted-foreground space-y-1">
-              <p><strong>Admin:</strong> admin@omyra.com / password</p>
-              <p><strong>Employee:</strong> user@omyra.com / password</p>
+              <p><strong>Admin:</strong> admin@omyra.com OR "Admin" / password</p>
+              <p><strong>Employee:</strong> user@omyra.com OR "Employee Name" / password</p>
+              <p className="text-xs opacity-75 mt-2">💡 You can login with email or name</p>
             </div>
           </div>
         </div>
@@ -131,16 +253,39 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ onLogin }) => {
 
           {/* Auth Form */}
           <form onSubmit={handleSubmit} className="space-y-4">
+            {!isLogin && (
+              <div className="space-y-2">
+                <Label htmlFor="name">Full Name</Label>
+                <div className="relative">
+                  <Users className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="Enter your full name"
+                    value={name}
+                    onChange={handleNameChange}
+                    onFocus={() => console.log('🎯 [Focus] Name field focused')}
+                    onBlur={() => console.log('🎯 [Blur] Name field lost focus')}
+                    className="pl-10 neu-inset border-0 bg-muted/50"
+                    required={!isLogin}
+                  />
+                </div>
+              </div>
+            )}
+
             <div className="space-y-2">
-              <Label htmlFor="email">Email address</Label>
+              <Label htmlFor="email">Email or Username</Label>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
                   id="email"
-                  type="email"
-                  placeholder="Enter your email"
+                  type="text"
+                  placeholder="Enter your email or name"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={handleEmailChange}
+                  onFocus={() => console.log('🎯 [Focus] Email/Name field focused')}
+                  onBlur={() => console.log('🎯 [Blur] Email/Name field lost focus')}
+                  onKeyDown={(e) => console.log(`⌨️ [Keypress] Email/Name: "${e.key}"`)}
                   className="pl-10 neu-inset border-0 bg-muted/50"
                   required
                 />
@@ -156,7 +301,10 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ onLogin }) => {
                   type={showPassword ? "text" : "password"}
                   placeholder="Enter your password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={handlePasswordChange}
+                  onFocus={() => console.log('🎯 [Focus] Password field focused')}
+                  onBlur={() => console.log('🎯 [Blur] Password field lost focus')}
+                  onKeyDown={(e) => console.log(`⌨️ [Keypress] Password: "${e.key}"`)}
                   className="pl-10 pr-10 neu-inset border-0 bg-muted/50"
                   required
                 />
@@ -165,7 +313,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ onLogin }) => {
                   variant="ghost"
                   size="icon-sm"
                   className="absolute right-1 top-1/2 transform -translate-y-1/2"
-                  onClick={() => setShowPassword(!showPassword)}
+                  onClick={handleShowPasswordToggle}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </Button>
@@ -189,9 +337,19 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ onLogin }) => {
               variant="neu-primary" 
               className="w-full group"
               size="lg"
+              disabled={isLoading}
             >
-              {isLogin ? 'Sign in' : 'Create account'}
-              <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
+              {isLoading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  {isLogin ? 'Signing in...' : 'Creating account...'}
+                </>
+              ) : (
+                <>
+                  {isLogin ? 'Sign in' : 'Create account'}
+                  <ArrowRight className="h-4 w-4 group-hover:translate-x-1 transition-transform ml-2" />
+                </>
+              )}
             </Button>
           </form>
 
@@ -205,7 +363,7 @@ const AuthLayout: React.FC<AuthLayoutProps> = ({ onLogin }) => {
               <Button 
                 variant="link" 
                 size="sm" 
-                onClick={() => setIsLogin(!isLogin)}
+                onClick={handleFormModeToggle}
                 className="ml-1"
               >
                 {isLogin ? 'Sign up' : 'Sign in'}
