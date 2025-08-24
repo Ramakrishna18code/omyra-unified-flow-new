@@ -25,26 +25,126 @@ export interface Employee {
   joiningDate: string;
 }
 
+// Complete Project Management Types
+export interface TeamMember {
+  _id: string;
+  employee: {
+    _id: string;
+    name: string;
+    email: string;
+    department: string;
+    position?: string;
+  };
+  role: 'project-manager' | 'developer' | 'designer' | 'tester' | 'analyst' | 'other';
+  allocation: Array<{
+    _id: string;
+    date: string;
+    amount: number;
+  }>;
+}
+
+export interface Expense {
+  _id: string;
+  description: string;
+  amount: number;
+  category: 'travel' | 'equipment' | 'software' | 'training' | 'other';
+  date: string;
+}
+
+export interface Milestone {
+  _id: string;
+  title: string;
+  description: string;
+  dueDate: string;
+  completedDate?: string;
+  status: 'pending' | 'in-progress' | 'completed' | 'overdue';
+}
+
+export interface Client {
+  name: string;
+  email: string;
+  company: string;
+  phone: string;
+}
+
 export interface Project {
   _id: string;
   name: string;
-  budget: number;
-  team: Array<{
-    employee: {
-      _id: string;
-      name: string;
-      email: string;
-      department: string;
-    };
-    allocation: number;
-  }>;
+  project_value: number;
+  status: 'planning' | 'active' | 'completed' | 'on-hold' | 'cancelled';
+  priority: 'low' | 'medium' | 'high' | 'critical';
+  description: string;
+  payment_type: 'one-time' | 'recurring' | 'milestone' | 'custom';
+  payment_terms: string;
+  startDate: string;
+  endDate: string;
+  actualEndDate?: string;
+  client: Client;
+  team: TeamMember[];
+  expenses: Expense[];
+  milestones: Milestone[];
   profit: number;
+  progress: number;
+  isOverdue: boolean;
+  duration: number;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface ProjectCreateData {
   name: string;
+  project_value: number;
+  description: string;
+  status?: string;
+  priority?: string;
+  payment_type?: string;
+  payment_terms?: string;
+  startDate: string;
+  endDate: string;
+  client: Client;
+  team: Array<{
+    employee: string;
+    role: string;
+    allocation: Array<{
+      date: string;
+      amount: number;
+    }>;
+  }>;
+  expenses?: Array<{
+    description: string;
+    amount: number;
+    category: string;
+  }>;
+}
+
+export interface ProjectAnalytics {
+  projectId: string;
+  projectName: string;
+  status: string;
+  priority: string;
+  progress: number;
+  isOverdue: boolean;
+  duration: number;
   budget: number;
-  allocations: Record<string, number>;
+  totalAllocation: number;
+  totalExpenses: number;
+  profit: number;
+  profitMargin: string;
+  teamSize: number;
+  milestonesCompleted: number;
+  totalMilestones: number;
+  startDate: string;
+  endDate: string;
+  actualEndDate?: string;
+}
+
+export interface ProfitsSummary {
+  totalProjects: number;
+  totalBudget: number;
+  totalAllocations: number;
+  totalExpenses: number;
+  totalProfit: number;
+  profitMargin: string;
 }
 
 // API Service Class
@@ -209,8 +309,8 @@ class ApiService {
     }
   }
 
-  // Project APIs
-  async getProjects(): Promise<Project[]> {
+  // Complete Project Management APIs
+  async getProjects(): Promise<{ count: number; projects: Project[] }> {
     const url = `${API_BASE_URL}/projects`;
     try {
       console.log(`🔄 [${new Date().toISOString()}] GET ${url}`);
@@ -219,8 +319,24 @@ class ApiService {
         headers: this.getAuthHeaders(),
       });
       
+      return this.handleResponse(response, url, 'GET');
+    } catch (error) {
+      ErrorLogger.logNetworkError(url, 'GET', error as Error);
+      throw error;
+    }
+  }
+
+  async getProject(projectId: string): Promise<Project> {
+    const url = `${API_BASE_URL}/projects/${projectId}`;
+    try {
+      console.log(`🔄 [${new Date().toISOString()}] GET ${url}`);
+      
+      const response = await fetch(url, {
+        headers: this.getAuthHeaders(),
+      });
+      
       const data = await this.handleResponse(response, url, 'GET');
-      return data.projects || [];
+      return data.project;
     } catch (error) {
       ErrorLogger.logNetworkError(url, 'GET', error as Error);
       throw error;
@@ -255,6 +371,138 @@ class ApiService {
         method: 'PUT',
         headers: this.getAuthHeaders(),
         body: JSON.stringify(updateData),
+      });
+      
+      const data = await this.handleResponse(response, url, 'PUT');
+      return data.project;
+    } catch (error) {
+      ErrorLogger.logNetworkError(url, 'PUT', error as Error);
+      throw error;
+    }
+  }
+
+  async deleteProject(projectId: string): Promise<void> {
+    const url = `${API_BASE_URL}/projects/${projectId}`;
+    try {
+      console.log(`🔄 [${new Date().toISOString()}] DELETE ${url}`);
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: this.getAuthHeaders(),
+      });
+      
+      await this.handleResponse(response, url, 'DELETE');
+    } catch (error) {
+      ErrorLogger.logNetworkError(url, 'DELETE', error as Error);
+      throw error;
+    }
+  }
+
+  async getProjectAnalytics(projectId: string): Promise<ProjectAnalytics> {
+    const url = `${API_BASE_URL}/projects/${projectId}/analytics`;
+    try {
+      console.log(`🔄 [${new Date().toISOString()}] GET ${url}`);
+      
+      const response = await fetch(url, {
+        headers: this.getAuthHeaders(),
+      });
+      
+      const data = await this.handleResponse(response, url, 'GET');
+      return data.analytics;
+    } catch (error) {
+      ErrorLogger.logNetworkError(url, 'GET', error as Error);
+      throw error;
+    }
+  }
+
+  async getTotalProfits(): Promise<{ summary: ProfitsSummary; projectDetails: Project[] }> {
+    const url = `${API_BASE_URL}/projects/profits/total`;
+    try {
+      console.log(`🔄 [${new Date().toISOString()}] GET ${url}`);
+      
+      const response = await fetch(url, {
+        headers: this.getAuthHeaders(),
+      });
+      
+      const data = await this.handleResponse(response, url, 'GET');
+      return {
+        summary: data.summary,
+        projectDetails: data.projectDetails
+      };
+    } catch (error) {
+      ErrorLogger.logNetworkError(url, 'GET', error as Error);
+      throw error;
+    }
+  }
+
+  // Team Management APIs
+  async addTeamMember(projectId: string, memberData: { employeeId: string; role: string; allocation: number }): Promise<Project> {
+    const url = `${API_BASE_URL}/projects/${projectId}/team`;
+    try {
+      console.log(`🔄 [${new Date().toISOString()}] POST ${url}`, memberData);
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(memberData),
+      });
+      
+      const data = await this.handleResponse(response, url, 'POST');
+      return data.project;
+    } catch (error) {
+      ErrorLogger.logNetworkError(url, 'POST', error as Error);
+      throw error;
+    }
+  }
+
+  async removeTeamMember(projectId: string, employeeId: string): Promise<Project> {
+    const url = `${API_BASE_URL}/projects/${projectId}/team`;
+    try {
+      console.log(`🔄 [${new Date().toISOString()}] DELETE ${url}`, { employeeId });
+      
+      const response = await fetch(url, {
+        method: 'DELETE',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify({ employeeId }),
+      });
+      
+      const data = await this.handleResponse(response, url, 'DELETE');
+      return data.project;
+    } catch (error) {
+      ErrorLogger.logNetworkError(url, 'DELETE', error as Error);
+      throw error;
+    }
+  }
+
+  // Milestone Management APIs
+  async addMilestone(projectId: string, milestoneData: { title: string; description?: string; dueDate: string }): Promise<Project> {
+    const url = `${API_BASE_URL}/projects/${projectId}/milestones`;
+    try {
+      console.log(`🔄 [${new Date().toISOString()}] POST ${url}`, milestoneData);
+      
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(milestoneData),
+      });
+      
+      const data = await this.handleResponse(response, url, 'POST');
+      return data.project;
+    } catch (error) {
+      ErrorLogger.logNetworkError(url, 'POST', error as Error);
+      throw error;
+    }
+  }
+
+  async updateMilestone(projectId: string, milestoneData: { milestoneId: string; status: string; completedDate?: string }): Promise<Project> {
+    const url = `${API_BASE_URL}/projects/${projectId}/milestones`;
+    try {
+      console.log(`🔄 [${new Date().toISOString()}] PUT ${url}`, milestoneData);
+      
+      const response = await fetch(url, {
+        method: 'PUT',
+        headers: this.getAuthHeaders(),
+        body: JSON.stringify(milestoneData),
       });
       
       const data = await this.handleResponse(response, url, 'PUT');

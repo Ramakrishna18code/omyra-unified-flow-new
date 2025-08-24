@@ -10,6 +10,7 @@ import RecruitmentManagement from './RecruitmentManagement';
 import EmployeeManagement from './EmployeeManagement';
 import MeetingsManagement from './Settings';
 import ClientInformation from './ClientInformation';
+import ProjectManagement from './ProjectManagement';
 import { dashboardService, type DashboardStats, type Project, type Employee } from '../services/dashboardService';
 import { logAuthStatus } from '../utils/authStatus';
 
@@ -144,12 +145,12 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin', user, onLogou
           name: project.name,
           budget: `$${(project.budget / 1000).toFixed(1)}K`,
           status: project.team && project.team.length > 0 ? 'In Progress' : 'Assigned',
-          owner: project.team && project.team.length > 0 ? project.team[0].employee.name : 'Unassigned',
-          team: project.team.map((member: any) => member.employee.name),
+          owner: project.team && project.team.length > 0 && project.team[0]?.employee?.name ? project.team[0].employee.name : 'Unassigned',
+          team: project.team?.map((member: any) => member?.employee?.name).filter(Boolean) || [],
           file: null,
           _id: project._id,
           rawBudget: project.budget,
-          allocation: project.team.reduce((acc: number, member: any) => acc + member.allocation, 0)
+          allocation: project.team?.reduce((acc: number, member: any) => acc + (member?.allocation || 0), 0) || 0
         }));
         
         setProjects(transformedProjects);
@@ -1116,262 +1117,7 @@ const Dashboard: React.FC<DashboardProps> = ({ userRole = 'admin', user, onLogou
             </div>
           )}
           {activeModule === 'projects' && (
-            <div className="animate-fade-in">
-              {/* Page Navigation */}
-              <div className="flex gap-4 mb-6">
-                <Button variant={projectPage === 'list' ? 'default' : 'outline'} onClick={() => { setProjectPage('list'); setSelectedProject(null); setEditProject(null); }}>Project List</Button>
-                <Button variant={projectPage === 'kanban' ? 'default' : 'outline'} onClick={() => { setProjectPage('kanban'); setSelectedProject(null); setEditProject(null); }}>Kanban Board</Button>
-              </div>
-              {/* Project List Page */}
-              {projectPage === 'list' && (
-                <div className="bg-card rounded-2xl shadow-xl p-8 animate-fade-in-up">
-                  <h2 className="text-2xl font-bold mb-4">Project List</h2>
-                  
-                  {/* Projects Loading State */}
-                  {projectsLoading && (
-                    <div className="flex items-center justify-center p-8 animate-pulse">
-                      <div className="flex items-center gap-4">
-                        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
-                        <span className="text-lg font-medium">Loading projects...</span>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Projects Error State */}
-                  {projectsError && !projectsLoading && (
-                    <div className="flex items-center justify-center p-8 bg-destructive/10 border border-destructive/20 rounded-2xl">
-                      <div className="text-center">
-                        <div className="text-destructive font-semibold mb-2">⚠️ Error Loading Projects</div>
-                        <div className="text-sm text-muted-foreground">{projectsError}</div>
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="mt-4"
-                          onClick={fetchProjectsData}
-                        >
-                          Retry
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Projects List */}
-                  {!projectsLoading && !projectsError && (
-                    <>
-                      {projects.length > 0 ? (
-                        <ul className="space-y-4">
-                          {projects.map((project, idx) => (
-                            <li key={project.id} className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 border border-border cursor-pointer transition-transform duration-300 hover:scale-105 hover:shadow-xl animate-fade-in-up" style={{animationDelay: `${idx * 60}ms`}} onClick={() => { setSelectedProject(project); setProjectPage('details'); }}>
-                              <div className="flex justify-between items-center mb-2">
-                                <span className="font-bold text-primary">{project.name}</span>
-                                <span className="text-xs text-muted-foreground">{project.owner}</span>
-                              </div>
-                              <div className="flex justify-between items-center mb-2">
-                                <span className="text-xs text-muted-foreground">Team: {project.team && project.team.length ? project.team.join(', ') : '—'}</span>
-                                <span className="text-sm font-semibold text-accent">{project.budget}</span>
-                              </div>
-                              <div className="flex justify-between items-center">
-                                <span className="text-xs text-muted-foreground">Status: {project.status}</span>
-                                <div className="flex gap-2">
-                                  <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); setEditProject(project); setProjectPage('edit'); }}>Edit</Button>
-                                </div>
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      ) : (
-                        <div className="text-center py-8 text-muted-foreground">
-                          <div className="text-lg mb-2">No projects found</div>
-                          <div className="text-sm">Create your first project to get started</div>
-                        </div>
-                      )}
-                      <Button className="mt-6" onClick={() => setShowProjectModal(true)} disabled={projectsLoading}>
-                        Add Project
-                      </Button>
-                    </>
-                  )}
-                </div>
-              )}
-              {/* Project Details Page */}
-              {projectPage === 'details' && selectedProject && (
-                <div className="p-8 bg-card rounded-2xl shadow-xl mb-8 animate-fade-in-up">
-                  <h2 className="text-2xl font-bold mb-4">Project Details</h2>
-                  <div className="space-y-2 animate-fade-in">
-                    <div><span className="font-semibold">Name:</span> {selectedProject.name}</div>
-                    <div><span className="font-semibold">Owner:</span> {selectedProject.owner}</div>
-                    <div><span className="font-semibold">Team:</span> {selectedProject.team && selectedProject.team.length ? selectedProject.team.join(', ') : '—'}</div>
-                    <div><span className="font-semibold">Budget:</span> {selectedProject.budget}</div>
-                    <div><span className="font-semibold">Status:</span> {selectedProject.status}</div>
-                    {selectedProject.file && (
-                      <div><span className="font-semibold">File:</span> <a href={URL.createObjectURL(selectedProject.file)} target="_blank" rel="noopener noreferrer" className="text-primary underline text-xs">View File</a></div>
-                    )}
-                  </div>
-                  <div className="flex gap-2 mt-6">
-                    <Button variant="outline" onClick={() => setProjectPage('list')}>Back to List</Button>
-                    <Button variant="outline" onClick={() => { setEditProject(selectedProject); setProjectPage('edit'); }}>Edit Project</Button>
-                  </div>
-                </div>
-              )}
-              {/* Project Edit Page */}
-              {projectPage === 'edit' && editProject && (
-                <div className="p-8 bg-card rounded-2xl shadow-xl mb-8">
-                  <h2 className="text-2xl font-bold mb-4">Edit Project</h2>
-                  <form onSubmit={e => {
-                    e.preventDefault();
-                    setProjects(projects.map(p => p.id === editProject.id ? { ...editProject } : p));
-                    setProjectPage('details');
-                    setSelectedProject(editProject);
-                    setEditProject(null);
-                  }}>
-                    <div className="mb-3">
-                      <label className="block mb-1 font-medium">Project Name</label>
-                      <input type="text" className="w-full border rounded p-2" value={editProject.name} onChange={e => setEditProject({ ...editProject, name: e.target.value })} required />
-                    </div>
-                    <div className="mb-3">
-                      <label className="block mb-1 font-medium">Owner</label>
-                      <input type="text" className="w-full border rounded p-2" value={editProject.owner} onChange={e => setEditProject({ ...editProject, owner: e.target.value })} required />
-                    </div>
-                    <div className="mb-3">
-                      <label className="block mb-1 font-medium">Team (comma separated)</label>
-                      <input type="text" className="w-full border rounded p-2" value={editProject.team.join(', ')} onChange={e => setEditProject({ ...editProject, team: e.target.value.split(',').map(t => t.trim()).filter(Boolean) })} placeholder="Alice, Bob" />
-                    </div>
-                    <div className="mb-3">
-                      <label className="block mb-1 font-medium">Budget</label>
-                      <input type="text" className="w-full border rounded p-2" value={editProject.budget} onChange={e => setEditProject({ ...editProject, budget: e.target.value })} placeholder="$10,000" />
-                    </div>
-                    <div className="mb-3">
-                      <label className="block mb-1 font-medium">Upload File</label>
-                      <input type="file" className="w-full" onChange={e => setEditProject({ ...editProject, file: e.target.files?.[0] || null })} />
-                    </div>
-                    <div className="flex gap-2 mt-4">
-                      <Button type="submit" className="flex-1">Save</Button>
-                      <Button type="button" variant="outline" className="flex-1" onClick={() => { setEditProject(null); setProjectPage('details'); }}>Cancel</Button>
-                    </div>
-                  </form>
-                </div>
-              )}
-              {/* Kanban Board Page */}
-              {projectPage === 'kanban' && (
-                <div className="animate-fade-in">
-                  <div className="p-8 bg-card rounded-2xl shadow-xl mb-8">
-                    <h2 className="text-2xl font-bold text-indigo-700 mb-2">Company Projects Kanban</h2>
-                    <p className="mb-2 text-indigo-500">Drag projects between columns to update status.</p>
-                  </div>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {['Assigned', 'In Progress', 'Completed'].map((status, idx) => (
-                      <div key={status} className="bg-white dark:bg-gray-900 rounded-xl p-4 min-h-[300px] shadow-lg animate-slide-in-up">
-                        <h3 className={`font-semibold text-lg mb-3 ${idx === 0 ? 'text-blue-700' : idx === 1 ? 'text-indigo-700' : 'text-purple-700'}`}>{status}</h3>
-                        <div className="flex flex-col gap-3">
-                          {projects.filter(p => p.status === status).map((p, pIdx) => (
-                            <div key={p.id}
-                              draggable
-                              onDragStart={() => setDraggedProject(p)}
-                              onDragEnd={() => setDraggedProject(null)}
-                              className={`bg-white dark:bg-gray-900 rounded-sm shadow p-2 cursor-move border border-border transition-transform duration-300 hover:scale-105 hover:shadow-xl animate-fade-in-up`} 
-                              style={{ minHeight: '40px', maxWidth: '100%', margin: '0 auto', animationDelay: `${pIdx * 60}ms` }}
-                            >
-                              <div className="flex-1 flex flex-col justify-center">
-                                <span className={`font-bold text-base ${idx === 0 ? 'text-blue-600' : idx === 1 ? 'text-indigo-600' : 'text-purple-600'} transition-colors duration-300`}>{p.name}</span>
-                                <span className="text-xs text-muted-foreground">Team: {p.team && p.team.length ? p.team.join(', ') : '—'}</span>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                        {/* Drop zone for moving projects */}
-                        <div
-                          className="mt-2 h-8 flex items-center justify-center text-xs text-gray-400 border-dashed border-2 border-gray-200 rounded"
-                          onDragOver={e => e.preventDefault()}
-                          onDrop={e => {
-                            if (draggedProject && draggedProject.status !== status) {
-                              setProjects(projects => projects.map(p => p.id === draggedProject.id ? { ...p, status } : p));
-                              setDraggedProject(null);
-                            }
-                          }}
-                        >
-                          {draggedProject ? `Drop here to move to ${status}` : ''}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {/* Project Add Modal */}
-              {showProjectModal && (
-                <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-                  <div className="bg-white dark:bg-gray-900 p-8 rounded-2xl shadow-2xl w-full max-w-md relative">
-                    <button className="absolute top-2 right-2 text-2xl" onClick={() => setShowProjectModal(false)}>×</button>
-                    <h3 className="text-xl font-bold mb-4">Add Project</h3>
-                    <form onSubmit={async (e) => {
-                      e.preventDefault();
-                      
-                      if (!newProject.name || !newProject.budget) {
-                        alert('Please fill in project name and budget');
-                        return;
-                      }
-                      
-                      await handleCreateProject({
-                        name: newProject.name,
-                        budget: newProject.budget,
-                        allocations: {} // Start with empty allocations
-                      });
-                    }}>
-                      <div className="mb-3">
-                        <label className="block mb-1 font-medium">Project Name</label>
-                        <input 
-                          type="text" 
-                          className="w-full border rounded p-2" 
-                          value={newProject.name} 
-                          onChange={e => setNewProject({ ...newProject, name: e.target.value })} 
-                          required 
-                          placeholder="Enter project name"
-                        />
-                      </div>
-                      <div className="mb-3">
-                        <label className="block mb-1 font-medium">Budget</label>
-                        <input 
-                          type="text" 
-                          className="w-full border rounded p-2" 
-                          value={newProject.budget || ''} 
-                          onChange={e => setNewProject({ ...newProject, budget: e.target.value })} 
-                          placeholder="e.g., 50000 or 50K" 
-                          required
-                        />
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Enter amount in dollars (e.g., 50000 or 50K)
-                        </p>
-                      </div>
-                      <div className="mb-3">
-                        <label className="block mb-1 font-medium text-muted-foreground">Team Allocation</label>
-                        <p className="text-xs text-muted-foreground mb-2">
-                          Team members can be allocated after project creation
-                        </p>
-                      </div>
-                      <div className="flex gap-2 mt-4">
-                        <Button 
-                          type="submit" 
-                          className="flex-1" 
-                          disabled={projectsLoading}
-                        >
-                          {projectsLoading ? 'Creating...' : 'Add Project'}
-                        </Button>
-                        <Button 
-                          type="button" 
-                          variant="outline" 
-                          className="flex-1" 
-                          onClick={() => {
-                            setShowProjectModal(false);
-                            setNewProject({ name: '', owner: '', team: '', file: null, budget: '' });
-                          }}
-                          disabled={projectsLoading}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-              )}
-            </div>
+            <ProjectManagement />
           )}
         </main>
       </div>
