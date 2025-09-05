@@ -474,6 +474,23 @@ class ApiService {
     }
   }
 
+  // Project Analytics APIs
+  async getAllProjectAnalytics(): Promise<{ analytics: ProjectAnalytics[]; summary: ProfitsSummary }> {
+    const url = `${API_BASE_URL}/analytics/projects`;
+    try {
+      console.log(`🔄 [${new Date().toISOString()}] GET ${url}`);
+      
+      const response = await fetch(url, {
+        headers: this.getAuthHeaders(),
+      });
+      
+      return this.handleResponse(response, url, 'GET');
+    } catch (error) {
+      ErrorLogger.logNetworkError(url, 'GET', error as Error);
+      throw error;
+    }
+  }
+
   // Milestone Management APIs
   async addMilestone(projectId: string, milestoneData: { title: string; description?: string; dueDate: string }): Promise<Project> {
     const url = `${API_BASE_URL}/projects/${projectId}/milestones`;

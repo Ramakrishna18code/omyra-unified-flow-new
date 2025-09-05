@@ -1,18 +1,25 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import Logo from "@/components/ui/logo";
 import {
-  Home,
-  Users,
-  Calendar,
-  FileText,
+  LayoutDashboard,
+  UsersRound,
+  CalendarCheck2,
+  Files,
   Settings,
   BarChart2,
-  UserPlus,
-  CreditCard,
-  Video,
+  GraduationCap,
+  WalletCards,
+  VideoIcon,
+  FileCheck,
+  ClipboardCheck,
+  MessagesSquare,
+  Building2,
+  BellRing,
+  Network
 } from "lucide-react";
-import { useMobile } from "@/hooks/use-mobile";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface NavigationItem {
   id: string;
@@ -24,57 +31,117 @@ interface NavigationItem {
 const navigationItems: NavigationItem[] = [
   {
     id: "dashboard",
-    icon: Home,
+    icon: LayoutDashboard,
     label: "Dashboard",
-    description: "Overview & Analytics",
+    description: "HR Overview & KPIs",
   },
   {
     id: "employees",
-    icon: Users,
+    icon: UsersRound,
     label: "Employees",
-    description: "Manage Team Members",
+    description: "Team Management",
   },
   {
     id: "attendance",
-    icon: Calendar,
+    icon: CalendarCheck2,
     label: "Attendance",
-    description: "Time & Presence",
+    description: "Time & Attendance",
+  },
+  {
+    id: "projects",
+    icon: Network,
+    label: "Projects",
+    description: "Company projects",
   },
   {
     id: "documents",
-    icon: FileText,
+    icon: Files,
     label: "Documents",
-    description: "Files & Records",
-  },
-  {
-    id: "payroll",
-    icon: CreditCard,
-    label: "Payroll",
-    description: "Compensation & Benefits",
-  },
-  {
-    id: "recruitment",
-    icon: UserPlus,
-    label: "Recruitment",
-    description: "Hiring & Onboarding",
-  },
-  {
-    id: "meetings",
-    icon: Video,
-    label: "Meetings",
-    description: "Schedule & Connect",
+    description: "File management",
   },
   {
     id: "analytics",
     icon: BarChart2,
     label: "Analytics",
-    description: "Reports & Insights",
+    description: "View insights",
+  },
+  {
+    id: "recruitment",
+    icon: GraduationCap,
+    label: "Recruitment",
+    description: "Hire talent",
   },
   {
     id: "settings",
     icon: Settings,
     label: "Settings",
-    description: "Preferences & Config",
+    description: "System config",
+  },
+  {
+    id: "documents",
+    icon: FileCheck,
+    label: "Documents",
+    description: "HR Documentation",
+  },
+  {
+    id: "tasks",
+    icon: ClipboardCheck,
+    label: "Tasks",
+    description: "Assignments & Goals",
+  },
+  {
+    id: "communication",
+    icon: MessagesSquare,
+    label: "Messages",
+    description: "Team Communication",
+  },
+  {
+    id: "organization",
+    icon: Building2,
+    label: "Organization",
+    description: "Company Structure",
+  },
+  {
+    id: "payroll",
+    icon: WalletCards,
+    label: "Payroll",
+    description: "Salary & Benefits",
+  },
+  {
+    id: "recruitment",
+    icon: GraduationCap,
+    label: "Recruitment",
+    description: "Talent Acquisition",
+  },
+  {
+    id: "meetings",
+    icon: VideoIcon,
+    label: "Meetings",
+    description: "Virtual Meetings",
+  },
+  {
+    id: "notifications",
+    icon: BellRing,
+    label: "Notifications",
+    description: "Updates & Alerts",
+  },
+  {
+    id: "analytics",
+    icon: BarChart2,
+    label: "Analytics",
+    description: "HR Insights",
+  },
+  {
+    id: "network",
+    icon: Network,
+    label: "Network",
+    description: "Team Connections",
+  },
+  {
+    id: "settings",
+    icon: Settings,
+    label: "Settings",
+    description: "System Settings",
   },
 ];
 
@@ -89,25 +156,24 @@ export function NavigationSidebar({
   onModuleChange,
   className,
 }: NavigationSidebarProps) {
-  const isMobile = useMobile();
+  const isMobile = useIsMobile();
 
   return (
     <aside
       className={cn(
-        "bg-card border-r border-border relative",
+        "bg-card border-r border-border fixed left-0 top-0 h-full z-50",
         "w-[280px] transition-all duration-300",
-        isMobile && "w-[70px] hover:w-[280px] group",
+        isMobile ? "w-[70px] hover:w-[280px]" : "w-[280px]",
+        "group",
         className
       )}
     >
       <div className="flex flex-col h-full">
         <div className="p-4 border-b border-border">
-          <h2 className={cn(
-            "text-lg font-semibold transition-all duration-300",
-            isMobile && "opacity-0 group-hover:opacity-100"
-          )}>
-            HR Management
-          </h2>
+          <Logo 
+            collapsed={isMobile} 
+            className="transition-all duration-300"
+          />
         </div>
 
         <ScrollArea className="flex-1 py-2">
@@ -121,22 +187,34 @@ export function NavigationSidebar({
                   key={item.id}
                   variant={isActive ? "secondary" : "ghost"}
                   className={cn(
-                    "w-full justify-start relative group/item",
+                    "w-full relative group/item p-2",
+                    isMobile ? "justify-center" : "justify-start",
                     "hover:bg-muted/50 transition-all duration-200",
                     isActive && "bg-muted"
                   )}
                   onClick={() => onModuleChange(item.id)}
                 >
-                  <Icon className={cn(
-                    "h-5 w-5 mr-3 transition-colors",
-                    isActive ? "text-primary" : "text-muted-foreground",
-                    "group-hover/item:text-foreground"
-                  )} />
                   <div className={cn(
-                    "flex flex-col items-start transition-all duration-300",
+                    "flex items-center justify-center h-10 w-10 rounded-xl transition-all duration-300",
+                    isActive 
+                      ? "bg-primary/15 text-primary shadow-lg shadow-primary/10" 
+                      : "bg-muted/60 text-foreground hover:shadow-md",
+                    "group-hover/item:bg-primary/10 group-hover/item:text-primary"
+                  )}>
+                    {Icon && <Icon className="h-5 w-5" />}
+                    <Icon className={cn(
+                      "h-5 w-5 transition-transform duration-300",
+                      isActive ? "text-primary" : "text-foreground",
+                      "group-hover/item:text-primary"
+                    )} />
+                  </div>
+                  <div className={cn(
+                    "flex flex-col items-start ml-3 transition-all duration-300",
                     isMobile && "opacity-0 group-hover:opacity-100"
                   )}>
-                    <span className="font-medium">{item.label}</span>
+                    <span className="font-medium text-foreground group-hover/item:text-primary transition-colors">
+                      {item.label}
+                    </span>
                     <span className="text-xs text-muted-foreground">
                       {item.description}
                     </span>

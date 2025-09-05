@@ -52,6 +52,25 @@ const RecruitmentManagement: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'jobs' | 'candidates'>('jobs');
   const [searchTerm, setSearchTerm] = useState('');
   const [showJobForm, setShowJobForm] = useState(false);
+  const [selectedCandidate, setSelectedCandidate] = useState<Candidate | null>(null);
+  const [showCandidateDetails, setShowCandidateDetails] = useState(false);
+
+  const handleViewCandidate = (candidate: Candidate) => {
+    setSelectedCandidate(candidate);
+    setShowCandidateDetails(true);
+  };
+
+  const handleShareCandidate = async (candidate: Candidate) => {
+    try {
+      await navigator.clipboard.writeText(
+        `Candidate Details:\n\nName: ${candidate.name}\nPosition: ${candidate.position}\nExperience: ${candidate.experience}\nStatus: ${candidate.status}`
+      );
+      alert('Candidate details copied to clipboard!');
+    } catch (err) {
+      console.error('Failed to copy candidate details:', err);
+      alert('Failed to share candidate details');
+    }
+  };
 
   const jobPostings: JobPosting[] = [
     {
@@ -353,10 +372,26 @@ const RecruitmentManagement: React.FC = () => {
                   </div>
                   
                   <div className="flex gap-2">
-                    <Button variant="ghost" size="sm">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleViewCandidate(candidate);
+                      }}
+                      className="hover:bg-primary/10 hover:text-primary transition-colors"
+                    >
                       <Eye className="h-4 w-4" />
                     </Button>
-                    <Button variant="ghost" size="sm">
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleShareCandidate(candidate);
+                      }}
+                      className="hover:bg-primary/10 hover:text-primary transition-colors"
+                    >
                       <Send className="h-4 w-4" />
                     </Button>
                   </div>
@@ -364,6 +399,78 @@ const RecruitmentManagement: React.FC = () => {
               </div>
             </Card>
           ))}
+        </div>
+      )}
+
+      {/* Candidate Details Modal */}
+      {showCandidateDetails && selectedCandidate && (
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <Card className="neu-surface p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold">Candidate Details</h2>
+              <Button variant="ghost" size="sm" onClick={() => setShowCandidateDetails(false)}>
+                <XCircle className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            <div className="space-y-6">
+              <div className="flex items-center gap-4">
+                <div className="h-16 w-16 rounded-full bg-primary-gradient flex items-center justify-center">
+                  <span className="text-2xl text-primary-foreground font-medium">
+                    {selectedCandidate.name.split(' ').map(n => n[0]).join('')}
+                  </span>
+                </div>
+                
+                <div>
+                  <h3 className="text-xl font-semibold">{selectedCandidate.name}</h3>
+                  <p className="text-muted-foreground">{selectedCandidate.position}</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-sm text-muted-foreground">Contact Information</p>
+                  <p className="font-medium">{selectedCandidate.email}</p>
+                  <p className="font-medium">{selectedCandidate.phone}</p>
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Experience</p>
+                  <p className="font-medium">{selectedCandidate.experience}</p>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground">Application Status</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <Badge className={getCandidateStatusColor(selectedCandidate.status)}>
+                    {selectedCandidate.status}
+                  </Badge>
+                  <span className="text-sm">Applied on {new Date(selectedCandidate.appliedDate).toLocaleDateString()}</span>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Resume</p>
+                <Button variant="outline" className="w-full">
+                  <Eye className="h-4 w-4 mr-2" />
+                  View Resume
+                </Button>
+              </div>
+
+              <div className="flex justify-end gap-3 mt-6">
+                <Button variant="outline" onClick={() => setShowCandidateDetails(false)}>
+                  Close
+                </Button>
+                <Button 
+                  variant="neu-primary"
+                  onClick={() => handleShareCandidate(selectedCandidate)}
+                >
+                  <Send className="h-4 w-4 mr-2" />
+                  Share Details
+                </Button>
+              </div>
+            </div>
+          </Card>
         </div>
       )}
 

@@ -13,11 +13,11 @@ interface ProjectAnalyticsDashboardProps {
 }
 
 const ProjectAnalyticsDashboard: React.FC<ProjectAnalyticsDashboardProps> = ({
-  projects,
-  analytics,
-  summary
+  projects = [],
+  analytics = [],
+  summary = null
 }) => {
-  const formatCurrency = (amount: number) => {
+  const formatCurrency = (amount: number = 0) => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
@@ -28,49 +28,55 @@ const ProjectAnalyticsDashboard: React.FC<ProjectAnalyticsDashboardProps> = ({
 
   // Prepare data for charts
   const statusData = projects.reduce((acc, project) => {
-    acc[project.status] = (acc[project.status] || 0) + 1;
+    if (project && project.status) {
+      acc[project.status] = (acc[project.status] || 0) + 1;
+    }
     return acc;
   }, {} as Record<string, number>);
 
   const statusChartData = Object.entries(statusData).map(([status, count]) => ({
-    name: status.charAt(0).toUpperCase() + status.slice(1),
+    name: status ? status.charAt(0).toUpperCase() + status.slice(1) : 'Unknown',
     value: count,
     count
   }));
 
   const priorityData = projects.reduce((acc, project) => {
-    acc[project.priority] = (acc[project.priority] || 0) + 1;
+    if (project && project.priority) {
+      acc[project.priority] = (acc[project.priority] || 0) + 1;
+    }
     return acc;
   }, {} as Record<string, number>);
 
   const priorityChartData = Object.entries(priorityData).map(([priority, count]) => ({
-    name: priority.charAt(0).toUpperCase() + priority.slice(1),
+    name: priority ? priority.charAt(0).toUpperCase() + priority.slice(1) : 'Unknown',
     value: count,
     count
   }));
 
   const profitData = projects.map(project => ({
-    name: project.name.length > 15 ? project.name.substring(0, 15) + '...' : project.name,
-    profit: project.profit,
-    budget: project.project_value,
-    profitMargin: ((project.profit / project.project_value) * 100)
+    name: project?.name ? (project.name.length > 15 ? project.name.substring(0, 15) + '...' : project.name) : 'Unnamed',
+    profit: project?.profit || 0,
+    budget: project?.project_value || 0,
+    profitMargin: project?.profit && project?.project_value ? ((project.profit / project.project_value) * 100) : 0
   }));
 
   const progressData = projects.map(project => ({
-    name: project.name.length > 10 ? project.name.substring(0, 10) + '...' : project.name,
-    progress: project.progress,
-    milestones: project.milestones.length,
-    completedMilestones: project.milestones.filter(m => m.status === 'completed').length
+    name: project?.name ? (project.name.length > 10 ? project.name.substring(0, 10) + '...' : project.name) : 'Unnamed',
+    progress: project?.progress || 0,
+    milestones: project?.milestones?.length || 0,
+    completedMilestones: project?.milestones?.filter(m => m?.status === 'completed')?.length || 0
   }));
 
   const monthlyData = projects.reduce((acc, project) => {
-    const month = new Date(project.startDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
-    if (!acc[month]) {
-      acc[month] = { month, projects: 0, revenue: 0, profit: 0 };
+    if (project?.startDate) {
+      const month = new Date(project.startDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+      if (!acc[month]) {
+        acc[month] = { month, projects: 0, revenue: 0, profit: 0 };
+      }
+      acc[month].projects += 1;
+      acc[month].revenue += project.project_value || 0;
+      acc[month].profit += project.profit || 0;
     }
-    acc[month].projects += 1;
-    acc[month].revenue += project.project_value;
-    acc[month].profit += project.profit;
     return acc;
   }, {} as Record<string, any>);
 
@@ -79,12 +85,12 @@ const ProjectAnalyticsDashboard: React.FC<ProjectAnalyticsDashboardProps> = ({
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
   // Calculate summary metrics
-  const totalProjects = projects.length;
-  const activeProjects = projects.filter(p => p.status === 'active').length;
-  const completedProjects = projects.filter(p => p.status === 'completed').length;
-  const overdueProjects = projects.filter(p => p.isOverdue).length;
-  const avgProgress = projects.reduce((sum, p) => sum + p.progress, 0) / totalProjects || 0;
-  const totalTeamMembers = projects.reduce((sum, p) => sum + p.team.length, 0);
+  const totalProjects = projects?.length || 0;
+  const activeProjects = projects?.filter(p => p?.status === 'active')?.length || 0;
+  const completedProjects = projects?.filter(p => p?.status === 'completed')?.length || 0;
+  const overdueProjects = projects?.filter(p => p?.isOverdue)?.length || 0;
+  const avgProgress = totalProjects ? projects.reduce((sum, p) => sum + (p?.progress || 0), 0) / totalProjects : 0;
+  const totalTeamMembers = projects?.reduce((sum, p) => sum + (p?.team?.length || 0), 0) || 0;
 
   return (
     <div className="space-y-6">
@@ -294,8 +300,8 @@ const ProjectAnalyticsDashboard: React.FC<ProjectAnalyticsDashboardProps> = ({
                       {index + 1}
                     </div>
                     <div>
-                      <h4 className="font-semibold">{project.name}</h4>
-                      <p className="text-sm text-gray-600">{project.client.name}</p>
+                      <h4 className="font-semibold">{project?.name || 'Unnamed Project'}</h4>
+                      <p className="text-sm text-gray-600">{project?.client?.name || 'No Client'}</p>
                     </div>
                   </div>
                   
@@ -303,20 +309,20 @@ const ProjectAnalyticsDashboard: React.FC<ProjectAnalyticsDashboardProps> = ({
                     <div className="text-center">
                       <p className="text-sm text-gray-600">Progress</p>
                       <div className="flex items-center gap-2">
-                        <Progress value={project.progress} className="w-16 h-2" />
-                        <span className="text-sm font-medium">{project.progress}%</span>
+                        <Progress value={project?.progress || 0} className="w-16 h-2" />
+                        <span className="text-sm font-medium">{project?.progress || 0}%</span>
                       </div>
                     </div>
                     
                     <div className="text-center">
                       <p className="text-sm text-gray-600">Profit</p>
-                      <p className="font-semibold text-green-600">{formatCurrency(project.profit)}</p>
+                      <p className="font-semibold text-green-600">{formatCurrency(project?.profit || 0)}</p>
                     </div>
                     
                     <div className="text-center">
                       <p className="text-sm text-gray-600">Margin</p>
                       <p className="font-semibold">
-                        {((project.profit / project.project_value) * 100).toFixed(1)}%
+                        {project?.profit && project?.project_value ? ((project.profit / project.project_value) * 100).toFixed(1) : '0'}%
                       </p>
                     </div>
                     
